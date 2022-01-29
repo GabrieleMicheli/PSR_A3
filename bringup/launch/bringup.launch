@@ -3,8 +3,6 @@
 
     <!-- Launch file arguments -->
     <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
-
-    <!-- TODO: have gazebo spawning multiple robots with different colors -->
     <arg name="player_name" default="p_randomName"/>
     <arg name="player_color" default="Red"/>
     <arg name="visualize" default="true"/>
@@ -32,16 +30,6 @@
             <include file="$(find bringup)/launch/visualize.launch">
             </include>
         </group>
-
-<!--        &lt;!&ndash; BEGIN ROBOT 1&ndash;&gt;-->
-<!--        <group ns="robot1">-->
-<!--            <param name="tf_prefix" value="robot1_tf" />-->
-<!--            <include file="$(find multi_robot)/launch/one_robot.launch" >-->
-<!--                <arg name="init_pose" value="-x 1 -y 1 -z 0" />-->
-<!--                <arg name="robot_name"  value="Robot1" />-->
-<!--            </include>-->
-<!--        </group>-->
-
 
     </group>
 </launch>
