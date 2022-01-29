@@ -1,0 +1,22 @@
+<!-- Creating a world in GAZEBO -->
+
+<launch>
+    <!-- Including another .launch file -->
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+
+        <!-- TODO Choose the arena we want to use: 1, 2 or 3? -->
+        <arg name="world_name" value="$(find th_description)/worlds/th_arena_1.world"/>
+<!--                <arg name="world_name" value="$(find th_description)/worlds/th_arena_2.world"/>-->
+<!--                <arg name="world_name" value="$(find th_description)/worlds/th_arena_3.world"/>-->
+
+        <arg name="paused" value="false"/>
+        <arg name="use_sim_time" value="true"/>
+        <arg name="gui" value="true"/>
+        <arg name="headless" value="false"/>
+        <arg name="debug" value="false"/>
+
+    </include>
+
+</launch>
+
+<!-- Interesting documentation: http://gazebosim.org/tutorials?tut=ros_roslaunch -->
