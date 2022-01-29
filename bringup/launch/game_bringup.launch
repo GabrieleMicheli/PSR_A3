@@ -1,0 +1,95 @@
+<!-- Launch file to start the robots -->
+<launch>
+
+    <rosparam command="load" file="$(find bringup)/params/game.yaml"/>
+
+    <!-- CREATE TEAM RED -->
+
+    <!-- Creating R1 (red1) robot -->
+    <include file="$(find bringup)/launch/bringup.launch">
+        <arg name="player_name" value="R1"/>
+        <arg name="player_color" value="Red"/>
+        <arg name="x_pos" default="5"/>
+        <arg name="y_pos" default="5"/>
+        <arg name="z_pos" default="0"/>
+    </include>
+
+    <!-- Creating R2 (red2) robot -->
+    <include file="$(find bringup)/launch/bringup.launch">
+        <arg name="player_name" value="R2"/>
+        <arg name="player_color" value="Red"/>
+        <arg name="x_pos" default="6"/>
+        <arg name="y_pos" default="5"/>
+        <arg name="z_pos" default="0"/>
+    </include>
+
+    <!-- Creating R3 (red3) robot -->
+    <include file="$(find bringup)/launch/bringup.launch">
+        <arg name="player_name" value="R3"/>
+        <arg name="player_color" value="Red"/>
+        <arg name="x_pos" default="7"/>
+        <arg name="y_pos" default="5"/>
+        <arg name="z_pos" default="0"/>
+    </include>
+
+    <!-- CREATE TEAM GREEN -->
+
+    <!-- Creating G1 (green1) robot -->
+    <include file="$(find bringup)/launch/bringup.launch">
+        <arg name="player_name" value="G1"/>
+        <arg name="player_color" value="Green"/>
+        <arg name="x_pos" default="-5"/>
+        <arg name="y_pos" default="5"/>
+        <arg name="z_pos" default="0"/>
+    </include>
+
+    <!-- Creating G2 (green2) robot -->
+    <include file="$(find bringup)/launch/bringup.launch">
+        <arg name="player_name" value="G2"/>
+        <arg name="player_color" value="Green"/>
+        <arg name="x_pos" default="-6"/>
+        <arg name="y_pos" default="5"/>
+        <arg name="z_pos" default="0"/>
+    </include>
+
+    <!-- Creating G3 (green3) robot -->
+    <include file="$(find bringup)/launch/bringup.launch">
+        <arg name="player_name" value="G3"/>
+        <arg name="player_color" value="Green"/>
+        <arg name="x_pos" default="-7"/>
+        <arg name="y_pos" default="5"/>
+        <arg name="z_pos" default="0"/>
+    </include>
+
+    <!-- CREATE TEAM BLUE -->
+
+    <!-- Creating B1 (blue1) robot -->
+    <include file="$(find bringup)/launch/bringup.launch">
+        <arg name="player_name" value="B1"/>
+        <arg name="player_color" value="Blue"/>
+        <arg name="x_pos" default="-5"/>
+        <arg name="y_pos" default="-5"/>
+        <arg name="z_pos" default="0"/>
+    </include>
+
+    <!-- Creating B2 (blue2) robot -->
+    <include file="$(find bringup)/launch/bringup.launch">
+        <arg name="player_name" value="B2"/>
+        <arg name="player_color" value="Blue"/>
+        <arg name="x_pos" default="-6"/>
+        <arg name="y_pos" default="-5"/>
+        <arg name="z_pos" default="0"/>
+    </include>
+
+    <!-- Creating B3 (blue3) robot -->
+    <include file="$(find bringup)/launch/bringup.launch">
+        <arg name="player_name" value="B3"/>
+        <arg name="player_color" value="Blue"/>
+        <arg name="x_pos" default="-7"/>
+        <arg name="y_pos" default="-5"/>
+        <arg name="z_pos" default="0"/>
+    </include>
+
+    <!-- Launch the 'set_player_names' ROS node -->
+    <node name="set_player_names" pkg="th_referee" type="set_player_names" output="screen"/>
+</launch>
