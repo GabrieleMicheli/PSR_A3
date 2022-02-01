@@ -14,11 +14,11 @@
         <param name="tf_prefix" value="$(arg player_name)"></param>
 
         <!-- Loading the robot's xacro from the robot_description parameter -->
-        <param name="robot_description" command="$(find xacro)/xacro --inorder $(find description)/urdf/p_randomName.urdf.xacro player_name:=$(arg player_name) player_color:=$(arg player_color)"/>
+        <param name="robot_description" command="$(find xacro)/xacro --inorder $(find p_group8_description)/urdf/p_randomName.urdf.xacro player_name:=$(arg player_name) player_color:=$(arg player_color)"/>
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
 
         <!-- Include spawn.launch file -->
-        <include file="$(find bringup)/launch/spawn.launch">
+        <include file="$(find p_group8_bringup)/launch/spawn.launch">
             <arg name="player_name" value="$(arg player_name)"/>
             <arg name="x_pos" value="$(arg x_pos)"/>
             <arg name="y_pos" value="$(arg y_pos)"/>
@@ -27,7 +27,7 @@
 
         <group if="$(arg visualize)">
             <!-- Include visualize.launch file -->
-            <include file="$(find bringup)/launch/visualize.launch">
+            <include file="$(find p_group8_bringup)/launch/visualize.launch">
             </include>
         </group>
 

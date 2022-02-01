@@ -10,8 +10,8 @@
   <xacro:property name="player_color" value="$(arg player_color)"/>
 
 <!-- Including other xacro files -->
-  <xacro:include filename="$(find description)/urdf/properties.xacro"/>
-  <xacro:include filename="$(find description)/urdf/p_randomName.gazebo.xacro"/>
+  <xacro:include filename="$(find p_group8_description)/urdf/properties.xacro"/>
+  <xacro:include filename="$(find p_group8_description)/urdf/p_randomName.gazebo.xacro"/>
 
 <!-- Defining links and joints -->
   <link name="base_footprint"/>

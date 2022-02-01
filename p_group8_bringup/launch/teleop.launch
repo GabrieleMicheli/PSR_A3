@@ -5,7 +5,7 @@
     <param name="model" value="$(arg model)"/>
 
     <group ns="$(arg player_name)">
-      <node pkg="bringup" type="teleop.py" name="teleop"  output="screen">
+      <node pkg="p_group8_bringup" type="teleop.py" name="teleop"  output="screen">
           <remap from="/cmd_vel" to="/$(arg player_name)/cmd_vel"/>
       </node>
     </group>

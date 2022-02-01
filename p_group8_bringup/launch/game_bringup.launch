@@ -1,12 +1,12 @@
 <!-- Launch file to start the robots -->
 <launch>
 
-    <rosparam command="load" file="$(find bringup)/params/game.yaml"/>
+    <rosparam command="load" file="$(find p_group8_bringup)/params/game.yaml"/>
 
     <!-- CREATE TEAM RED -->
 
     <!-- Creating R1 (red1) robot -->
-    <include file="$(find bringup)/launch/bringup.launch">
+    <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="R1"/>
         <arg name="player_color" value="Red"/>
         <arg name="x_pos" default="5"/>
@@ -15,7 +15,7 @@
     </include>
 
     <!-- Creating R2 (red2) robot -->
-    <include file="$(find bringup)/launch/bringup.launch">
+    <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="R2"/>
         <arg name="player_color" value="Red"/>
         <arg name="x_pos" default="6"/>
@@ -24,7 +24,7 @@
     </include>
 
     <!-- Creating R3 (red3) robot -->
-    <include file="$(find bringup)/launch/bringup.launch">
+    <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="R3"/>
         <arg name="player_color" value="Red"/>
         <arg name="x_pos" default="7"/>
@@ -35,7 +35,7 @@
     <!-- CREATE TEAM GREEN -->
 
     <!-- Creating G1 (green1) robot -->
-    <include file="$(find bringup)/launch/bringup.launch">
+    <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G1"/>
         <arg name="player_color" value="Green"/>
         <arg name="x_pos" default="-5"/>
@@ -44,7 +44,7 @@
     </include>
 
     <!-- Creating G2 (green2) robot -->
-    <include file="$(find bringup)/launch/bringup.launch">
+    <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G2"/>
         <arg name="player_color" value="Green"/>
         <arg name="x_pos" default="-6"/>
@@ -53,7 +53,7 @@
     </include>
 
     <!-- Creating G3 (green3) robot -->
-    <include file="$(find bringup)/launch/bringup.launch">
+    <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G3"/>
         <arg name="player_color" value="Green"/>
         <arg name="x_pos" default="-7"/>
@@ -64,7 +64,7 @@
     <!-- CREATE TEAM BLUE -->
 
     <!-- Creating B1 (blue1) robot -->
-    <include file="$(find bringup)/launch/bringup.launch">
+    <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B1"/>
         <arg name="player_color" value="Blue"/>
         <arg name="x_pos" default="-5"/>
@@ -73,7 +73,7 @@
     </include>
 
     <!-- Creating B2 (blue2) robot -->
-    <include file="$(find bringup)/launch/bringup.launch">
+    <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B2"/>
         <arg name="player_color" value="Blue"/>
         <arg name="x_pos" default="-6"/>
@@ -82,7 +82,7 @@
     </include>
 
     <!-- Creating B3 (blue3) robot -->
-    <include file="$(find bringup)/launch/bringup.launch">
+    <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B3"/>
         <arg name="player_color" value="Blue"/>
         <arg name="x_pos" default="-7"/>

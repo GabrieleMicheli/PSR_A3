@@ -76,7 +76,7 @@
 
   <!--Using gazebo or ROS native controller for differential drives -->
   <!-- TODO: Understand the next line of code: -->
-  <xacro:include filename="$(find description)/urdf/ros_diff_drive.gazebo.xacro"/>
+  <xacro:include filename="$(find p_group8_description)/urdf/ros_diff_drive.gazebo.xacro"/>
 
 <!--  Using ROS diff drive controller ... much slower-->
 <!--  <xacro:include filename="$(find p_moliveira_description)/urdf/ros_control.gazebo.xacro"/>-->
