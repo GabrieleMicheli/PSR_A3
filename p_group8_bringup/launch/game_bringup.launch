@@ -68,7 +68,7 @@
         <arg name="player_name" value="B1"/>
         <arg name="player_color" value="Blue"/>
         <arg name="x_pos" default="-5"/>
-        <arg name="y_pos" default="-5"/>
+        <arg name="y_pos" default="-2"/>
         <arg name="z_pos" default="0"/>
     </include>
 
@@ -77,7 +77,7 @@
         <arg name="player_name" value="B2"/>
         <arg name="player_color" value="Blue"/>
         <arg name="x_pos" default="-6"/>
-        <arg name="y_pos" default="-5"/>
+        <arg name="y_pos" default="-2"/>
         <arg name="z_pos" default="0"/>
     </include>
 
@@ -86,7 +86,7 @@
         <arg name="player_name" value="B3"/>
         <arg name="player_color" value="Blue"/>
         <arg name="x_pos" default="-7"/>
-        <arg name="y_pos" default="-5"/>
+        <arg name="y_pos" default="-2"/>
         <arg name="z_pos" default="0"/>
     </include>
 

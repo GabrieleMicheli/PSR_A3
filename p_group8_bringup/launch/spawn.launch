@@ -6,6 +6,7 @@
     <arg name="z_pos" default="0.0"/>
 
     <!-- Spawning (instant creation) of the robot defined by the description previously loaded for the robot_description, to a specific position in the arena -->
-    <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model $(arg player_name) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param $(arg player_name)/robot_description"/>
+<!--    <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model $(arg player_name) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param $(arg player_name)/robot_description"/>-->
+    <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model $(arg player_name) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description"/>
 
 </launch>
