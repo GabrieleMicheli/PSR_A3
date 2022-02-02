@@ -9,15 +9,16 @@ from geometry_msgs.msg import Twist, PoseStamped
 class Driver():
     def __init__(self):
         self.team = 'Not defined'
+        # Getting the parameters from the YAML file
         red_players_list = rospy.get_param('/red_players')
         green_players_list = rospy.get_param('/green_players')
         blue_players_list = rospy.get_param('/blue_players')
         self.name = rospy.get_name()
-        self.name = self.name.strip('/')
-        # print("My player name is: " + str(self.name))
+        self.name = self.name.strip('/') # removing slash
         self.getTeam(red_players_list, green_players_list, blue_players_list)
         self.information(red_players_list, green_players_list, blue_players_list)
-        # Define a goal Pose to which the robot should move
+
+        # define a goal Pose to which the robot should move
         self.goal = PoseStamped()
         self.goal_active = False
 
@@ -28,20 +29,16 @@ class Driver():
         self.timer = rospy.Timer(rospy.Duration(0.1), self.sendCommandCallback)
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
 
-    # Function to check the players team - harcoded
+    # function to check the players team - harcoded
     def getTeam(self, red_players_list, green_players_list, blue_players_list):
 
         if self.name in red_players_list:
-            # print('I am on red team')
             self.team = 'Red'
         elif self.name in green_players_list:
-            # print('I am on green team')
             self.team = 'Green'
         elif self.name in blue_players_list:
-            # print('I am on blue team')
             self.team = 'Blue'
         else:
-            # print('Joker')
             self.team = 'Joker'
 
     def information(self, red_players_list, green_players_list, blue_players_list):
@@ -55,8 +52,6 @@ class Driver():
                 red_players_list) + " and fleeing from " + str(green_players_list))
         else:
             print('You are a joker and you can just annoy the others!')
-
-
 
     def goalReceivedCallback(self, goal_msg):
         print('Received new goal')

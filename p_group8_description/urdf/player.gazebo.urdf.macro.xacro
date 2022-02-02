@@ -29,8 +29,7 @@
     <maxVel>0.1</maxVel>
     <fdir1>1 0 0</fdir1>
 
-    <!-- Gazebo properties are global: https://answers.ros.org/question/216975/loading-variables-with-xacroinclude/ -->
-<!--    <material>Gazebo/${player_color}</material>-->
+  <!-- Gazebo properties are global: https://answers.ros.org/question/216975/loading-variables-with-xacroinclude/ -->
   </gazebo>
 
   <gazebo reference="wheel_right_link">
@@ -41,9 +40,6 @@
     <minDepth>0.001</minDepth>
     <maxVel>0.01</maxVel>
     <fdir1>1 0 0</fdir1>
-
-    <!-- Gazebo properties are global: https://answers.ros.org/question/216975/loading-variables-with-xacroinclude/ -->
-<!--    <material>Gazebo/${player_color}</material>-->
   </gazebo>
 
   <gazebo reference="caster_back_right_link">
@@ -75,8 +71,8 @@
   </gazebo>
 
   <!--Using gazebo or ROS native controller for differential drives -->
-  <!-- TODO: Understand the next line of code: -->
-  <xacro:include filename="$(find p_group8_description)/urdf/ros_diff_drive.gazebo.xacro"/>
+<!--   TODO: Understand the next line of code: -->
+<!--  <xacro:include filename="$(find p_group8_description)/urdf/ros_diff_drive.gazebo.xacro"/>-->
 
 <!--  Using ROS diff drive controller ... much slower-->
 <!--  <xacro:include filename="$(find p_moliveira_description)/urdf/ros_control.gazebo.xacro"/>-->

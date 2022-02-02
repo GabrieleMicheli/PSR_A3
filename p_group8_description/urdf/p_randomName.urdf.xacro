@@ -1,19 +1,19 @@
 <?xml version="1.0" ?>
 <robot name="team_hunt_player" xmlns:xacro="http://ros.org/wiki/xacro">
 
-<!--  Arguments - arguments are used as: $(arg argument) -->
+  <!--  Arguments - arguments are used as: $(arg argument) -->
   <xacro:arg name="player_name"  default="p_randomName"/>
   <xacro:arg name="player_color"  default="Red"/>
 
-<!-- Copying arguments to properties so that they are visible in the included xacros - properties are used as ${property} -->
+  <!-- Copying arguments to properties so that they are visible in the included xacros - properties are used as ${property} -->
   <xacro:property name="player_name" value="$(arg player_name)"/>
   <xacro:property name="player_color" value="$(arg player_color)"/>
 
-<!-- Including other xacro files -->
+  <!-- Including other xacro files -->
   <xacro:include filename="$(find p_group8_description)/urdf/properties.xacro"/>
   <xacro:include filename="$(find p_group8_description)/urdf/p_randomName.gazebo.xacro"/>
 
-<!-- Defining links and joints -->
+  <!-- Defining links and joints -->
   <link name="base_footprint"/>
 
   <joint name="base_joint" type="fixed">
@@ -28,18 +28,6 @@
       <geometry>
         <mesh filename="package://turtlebot3_description/meshes/bases/waffle_pi_base.stl" scale="0.001 0.001 0.001"/>
       </geometry>
-
-      <!--
-      DEFINING THE MATERIAL:
-        <material> (optional)
-          The material of the visual element.
-        <color> (optional)
-          rgba The color of a material specified by set of four numbers representing red/green/blue/alpha, each in the range of [0,1].
-        <texture> (optional)
-          The texture of a material is specified by a filename
-
-      See: http://wiki.ros.org/urdf/XML/link chapter 3
-      -->
 
       <material name="$(arg player_color)"/>
     </visual>
