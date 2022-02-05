@@ -8,4 +8,9 @@
     <!-- Spawning (instant creation) of the robot defined by the description previously loaded for the robot_description, to a specific position in the arena -->
     <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model $(arg player_name) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description"/>
 
+<!--    &lt;!&ndash; Include gmapping.launch file &ndash;&gt;-->
+<!--    <include file="$(find p_group8_bringup)/launch/gmapping.launch">-->
+<!--        <arg name="name" value="$(arg player_name)"/>-->
+<!--    </include>-->
+
 </launch>
