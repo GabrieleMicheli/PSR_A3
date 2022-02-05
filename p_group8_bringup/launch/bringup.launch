@@ -31,5 +31,10 @@
             </include>
         </group>
 
+<!--        &lt;!&ndash; Include gmapping.launch file &ndash;&gt;-->
+<!--        <include file="$(find p_group8_bringup)/launch/gmapping.launch">-->
+<!--            <arg name="player_name" value="$(arg player_name)"/>-->
+<!--        </include>-->
+
     </group>
 </launch>

@@ -14,6 +14,11 @@
         <arg name="z_pos" default="0"/>
     </include>
 
+<!-- Include gmapping.launch file -->
+    <include file="$(find p_group8_bringup)/launch/gmapping.launch">
+        <arg name="player_name" value="R1"/>
+    </include>
+
     <!-- Creating R2 (red2) robot -->
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="R2"/>
@@ -21,6 +26,11 @@
         <arg name="x_pos" default="6"/>
         <arg name="y_pos" default="5"/>
         <arg name="z_pos" default="0"/>
+    </include>
+
+    <!-- Include gmapping.launch file -->
+    <include file="$(find p_group8_bringup)/launch/gmapping.launch">
+        <arg name="player_name" value="R2"/>
     </include>
 
     <!-- Creating R3 (red3) robot -->
