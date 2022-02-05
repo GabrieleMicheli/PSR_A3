@@ -25,16 +25,16 @@
             <arg name="z_pos" value="$(arg z_pos)"/>
         </include>
 
+        <!-- Include gmapping.launch file -->
+        <include file="$(find p_group8_bringup)/launch/gmapping.launch">
+            <arg name="name" value="$(arg player_name)"/>
+        </include>
+
         <group if="$(arg visualize)">
             <!-- Include visualize.launch file -->
             <include file="$(find p_group8_bringup)/launch/visualize.launch">
             </include>
         </group>
-
-<!--        &lt;!&ndash; Include gmapping.launch file &ndash;&gt;-->
-<!--        <include file="$(find p_group8_bringup)/launch/gmapping.launch">-->
-<!--            <arg name="player_name" value="$(arg player_name)"/>-->
-<!--        </include>-->
 
     </group>
 </launch>
