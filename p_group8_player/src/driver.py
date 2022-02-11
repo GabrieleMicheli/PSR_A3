@@ -2,20 +2,29 @@
 
 import copy
 import math
+import cv2
 import rospy
 import tf2_ros
+from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist, PoseStamped
+from sensor_msgs.msg import Image
+from driver_functions import *
 
 
 class Driver():
     def __init__(self):
+        # Defining parameters
         self.team = 'Not defined'
         self.prey = 'Not defined'
         self.hunter = 'Not defined'
-        # Getting the parameters from the YAML file
+
+        # Getting parameters
         red_players_list = rospy.get_param('/red_players')
         green_players_list = rospy.get_param('/green_players')
         blue_players_list = rospy.get_param('/blue_players')
+        self.debug = rospy.get_param('~debug')
+
+        # Defining name of the robot, team and respective info
         self.name = rospy.get_name()
         self.name = self.name.strip('/')  # removing slash
         self.name = self.name.strip('/driver')  # removing slash
@@ -27,12 +36,17 @@ class Driver():
         self.goal = PoseStamped()
         self.goal_active = False
 
+        # Defining cv bridge
+        self.cv_bridge = CvBridge()
+
+        # Defining transformation buffer
         self.tf_buffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tf_buffer)
 
+        # Defining publishers and subscriber
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
-        self.timer = rospy.Timer(rospy.Duration(0.1), self.sendCommandCallback)
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
+        self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
 
     # function to check the players team - harcoded
     def getTeam(self, red_players_list, green_players_list, blue_players_list):
@@ -41,14 +55,23 @@ class Driver():
             self.team = 'Red'
             self.prey = 'Blue'
             self.hunter = 'Green'
+            self.team_color = [0, 0, 255]
+            self.prey_color = [255, 0, 0]
+            self.hunter_color = [0, 255, 0]
         elif self.name in green_players_list:
             self.team = 'Green'
             self.prey = 'Red'
             self.hunter = 'Blue'
+            self.team_color = [0, 255, 0]
+            self.prey_color = [0, 0, 255]
+            self.hunter_color = [255, 0, 0]
         elif self.name in blue_players_list:
             self.team = 'Blue'
             self.prey = 'Green'
             self.hunter = 'Red'
+            self.team_color = [255, 0, 0]
+            self.prey_color = [0, 255, 0]
+            self.hunter_color = [0, 0, 255]
         else:
             self.team = 'Joker'
 
@@ -70,7 +93,7 @@ class Driver():
         self.goal = goal_msg  # storing goal inside the class
         self.goal_active = True
 
-    def sendCommandCallback(self, event):
+    def sendCommandCallback(self):
         # Decision outputs a speed (linear Velocity) and an angle (angular Velocity)
         # input: goal
         # output: angle and speed
@@ -97,7 +120,7 @@ class Driver():
         twist.linear.x = speed
         twist.angular.z = angle
 
-        self.publisher_command.publish(twist)
+        # self.publisher_command.publish(twist)
 
     def computeDistanceToGoal(self, goal):
         goal_present_time = copy.deepcopy(goal)
@@ -144,6 +167,21 @@ class Driver():
 
         return angle, speed
 
+    def cameraCallback(self, msg):
+        # Convert from message to cv2 image
+        img = self.cv_bridge.imgmsg_to_cv2(msg)
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+        # Get an ima
+
+        # x, y, w, h = cv2.boundingRect(cnt)
+        # cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        if self.debug:
+            cv2.namedWindow(self.name)
+            cv2.imshow(self.name, img)
+            cv2.waitKey(1)
+
 
 
 
@@ -154,19 +192,15 @@ def main():
     rospy.init_node('R1', anonymous=False)
 
     driver = Driver()
+    rate = rospy.Rate(10)
 
-    rospy.spin()
 
     # ------------------------------------------------------
     # Execution
     # ------------------------------------------------------
-    # while not rospy.is_shutdown():
-    #     twist = Twist()
-    #     twist.linear.x = 0.1
-    #     twist.angular.z = -1
-    #
-    #     publisher.publish(twist)
-    #     rate.sleep()
+    while not rospy.is_shutdown():
+        driver.sendCommandCallback()
+        rate.sleep()
 
 
 if __name__ == '__main__':

@@ -10,6 +10,7 @@
     <arg name="x_pos" default="0.0"/>
     <arg name="y_pos" default="-2.0"/>
     <arg name="z_pos" default="0.0"/>
+    <arg name="debug" default="false"/>
 
     <group ns="$(arg player_name)">
         <param name="tf_prefix" value="$(arg player_name)"/>
@@ -33,7 +34,9 @@
 
         <!-- Include drivers-->
         <group if="$(arg driver)">
-            <node name="driver" pkg="p_group8_player" type="driver.py" output="screen"/>
+            <node name="driver" pkg="p_group8_player" type="driver.py" output="screen">
+                    <param name="debug" value="$(arg debug)"/>
+            </node>
         </group>
 
         <group if="$(arg visualize)">
