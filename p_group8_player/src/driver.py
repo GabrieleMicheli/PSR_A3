@@ -126,7 +126,7 @@ class Driver():
         goal_present_time = copy.deepcopy(goal)
         goal_present_time.header.stamp = rospy.Time.now()
 
-        target_frame = self.name + '/base_footrospy.loginfo'
+        target_frame = self.name + '/base_footprint'
         try:
             goal_in_base_link = self.tf_buffer.transform(goal_present_time, target_frame, rospy.Duration(1))
         except(tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
@@ -145,7 +145,7 @@ class Driver():
         goal_present_time = copy.deepcopy(goal)
         goal_present_time.header.stamp = rospy.Time.now()
 
-        target_frame = self.name + '/base_footrospy.loginfo'
+        target_frame = self.name + '/base_footprint'
         try:
             goal_in_base_link = self.tf_buffer.transform(goal_present_time, target_frame, rospy.Duration(1))
         except(tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
