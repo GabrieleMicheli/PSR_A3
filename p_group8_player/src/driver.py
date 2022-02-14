@@ -9,6 +9,9 @@ from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist, PoseStamped
 from sensor_msgs.msg import Image
 from driver_functions import *
+import numpy as np
+
+global object_area
 
 
 class Driver():
@@ -47,6 +50,13 @@ class Driver():
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
         self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
+
+        # Defining threshold limits for image processing masks
+        self.blue_limits = {'B': {'max': 255, 'min': 100}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 50, 'min': 0}}
+        self.red_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 255, 'min': 100}}
+        self.green_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 255, 'min': 100}, 'R': {'max': 50, 'min': 0}}
+
+        self.connectivity = 4
 
     # function to check the players team - harcoded
     def getTeam(self, red_players_list, green_players_list, blue_players_list):
@@ -168,22 +178,84 @@ class Driver():
         return angle, speed
 
     def cameraCallback(self, msg):
+
         # Convert from message to cv2 image
-        img = self.cv_bridge.imgmsg_to_cv2(msg)
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        bridge = CvBridge()
+        self.cv_image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
-        # Get an ima
+        # Creating masks for each of the robots colors
+        self.blue_mask = cv2.inRange(self.cv_image, (
+            self.blue_limits['B']['min'], self.blue_limits['G']['min'], self.blue_limits['R']['min']),
+                                     (self.blue_limits['B']['max'], self.blue_limits['G']['max'],
+                                      self.blue_limits['R']['max']))
 
-        # x, y, w, h = cv2.boundingRect(cnt)
-        # cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        self.red_mask = cv2.inRange(self.cv_image, (
+            self.red_limits['B']['min'], self.red_limits['G']['min'], self.red_limits['R']['min']),
+                                    (self.red_limits['B']['max'], self.red_limits['G']['max'],
+                                     self.red_limits['R']['max']))
+
+        self.green_mask = cv2.inRange(self.cv_image, (
+            self.green_limits['B']['min'], self.green_limits['G']['min'], self.green_limits['R']['min']),
+                                      (self.green_limits['B']['max'], self.green_limits['G']['max'],
+                                       self.green_limits['R']['max']))
+
+        self.exist_image = True
 
         if self.debug:
             cv2.namedWindow(self.name)
-            cv2.imshow(self.name, img)
+            cv2.imshow(self.name, self.green_mask)
             cv2.waitKey(1)
 
+    def getCentroid(self):
 
+        global object_area
 
+        # Extract image size parameters if any image is detected
+        if self.exist_image:
+            self.height = self.cv_image.shape[0]
+            self.width = self.cv_image.shape[1]
+
+        # Creating list of masks, centroids and biggest object found
+        masks = [self.blue_mask, self.green_mask, self.red_mask]
+        biggest_objects = []
+        self.centroids = []
+
+        # Loop the masks list
+        for mask in masks:
+            results = cv2.connectedComponentsWithStats(mask, self.connectivity, ltype=cv2.CV_32S)
+            no_labels = results[0]
+            labels = results[1]
+            stats = results[2]
+            centroids = results[3]
+
+            maximum_area = 0
+            object_idx = 1
+            player_detected = True
+
+            for i in range(1, no_labels):
+
+                object_area = stats[i, cv2.CC_STAT_AREA]
+
+                if object_area > maximum_area:
+                    maximum_area = object_area
+                    object_idx = i
+
+            # Used only for eliminating noise detection
+            if object_area < 30:
+                player_detected = False
+
+            # Convert labels into uint8 and append it to list
+            biggest_object = (labels == object_idx)
+            biggest_object = biggest_object.astype(np.uint8) * 255
+            biggest_objects.append(biggest_object)
+
+            # Append tuples of centroid coordinates if a player is detected
+            if player_detected:
+                centroid_coordinates = centroids[object_idx, :].astype(np.uint)
+                centroid_coordinates = tuple(centroid_coordinates)
+                self.centroids.append(centroid_coordinates)
+            else:
+                self.centroids.append(None)
 
 def main():
     # ------------------------------------------------------
@@ -193,7 +265,6 @@ def main():
 
     driver = Driver()
     rate = rospy.Rate(10)
-
 
     # ------------------------------------------------------
     # Execution
