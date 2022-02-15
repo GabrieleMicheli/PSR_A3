@@ -7,6 +7,9 @@
 - Pedro Miguel Duares De Carvalho
 - Gabriele Micheli
 
+## Play description
+EXPLAIN...
+For further details, see: [Part 14 (TeamHunt)](https://github.com/miguelriemoliveira/psr_21-22/tree/main/Parte14).
 
 ## How to run the program? 
 ###### STEP 1: Create the empty environment
@@ -18,11 +21,14 @@ To create the multirobot environment, run the command: \
 ###### STEP 2a: Create a single robot
 To create a single robot instead of a multiple-robot environment, run the command: \
 ```roslaunch p_group8_bringup bringup.launch player_name:=p_randomName```
+###### STEP 3: Robot moving
+To start the hunting and see the robot moving automatically, run the command: \
+```rosrun p_group8_player driver.py```
 ## rviz  
 To open the initial **rviz** setup, run the command: \
-```roslaunch p_group8_bringup visualize.launch```
+```roslaunch p_group8_bringup visualize.launch```  
 
-## Robot moving 
+## Robot manual moving 
 ###### Teleop
 Run the **teleop.launch** file to move the robot using the computer's keyboard. To do this, run the command: \
 ```roslaunch p_group8_bringup teleop.launch``` 
