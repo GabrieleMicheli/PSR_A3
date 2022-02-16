@@ -253,6 +253,7 @@ class Driver():
                                     (self.blue_limits['B']['max'], self.blue_limits['G']['max'],
                                      self.blue_limits['R']['max']))
 
+
         # Extract results from mask
         results = cv2.connectedComponentsWithStats(self.mask, self.connectivity, ltype=cv2.CV_32S)
         no_labels = results[0]
