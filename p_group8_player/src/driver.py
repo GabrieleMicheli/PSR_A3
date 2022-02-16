@@ -10,8 +10,12 @@ from geometry_msgs.msg import Twist, PoseStamped
 from sensor_msgs.msg import Image
 from driver_functions import *
 import numpy as np
+import logging
+from math import *
+from std_msgs.msg import String
+from sensor_msgs.msg import LaserScan
+from nav_msgs.msg import Odometry
 
-global object_area
 
 
 class Driver():
@@ -20,6 +24,7 @@ class Driver():
         self.team = 'Not defined'
         self.prey = 'Not defined'
         self.hunter = 'Not defined'
+        self.centroids = []
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -50,40 +55,61 @@ class Driver():
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
         self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
+        self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
+        self.odom_sub = rospy.Subscriber(self.name + "/odom", Odometry, self.odomCallback)
 
         # Defining threshold limits for image processing masks
         self.blue_limits = {'B': {'max': 255, 'min': 100}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 50, 'min': 0}}
         self.red_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 255, 'min': 100}}
         self.green_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 255, 'min': 100}, 'R': {'max': 50, 'min': 0}}
 
+        self.index_color = {'blue': 0, 'green': 1, 'red': 2}
+
         self.connectivity = 4
 
-    # function to check the players team - harcoded
+        # Laser Scan Parameters
+        self.MAX_LIDAR_DISTANCE = 1.0
+        self.COLLISION_DISTANCE = 0.14  # LaserScan.range_min = 0.1199999
+        self.NEARBY_DISTANCE = 0.45
+
+        self.ZONE_0_LENGTH = 0.4
+        self.ZONE_1_LENGTH = 0.7
+
+        self.ANGLE_MAX = 360 - 1
+        self.ANGLE_MIN = 1 - 1
+        self.HORIZON_WIDTH = 75
+
+    # Function to check the players team - harcoded
+    # Not hardcoded anymore what do you think?
     def getTeam(self, red_players_list, green_players_list, blue_players_list):
 
         if self.name in red_players_list:
             self.team = 'Red'
             self.prey = 'Blue'
             self.hunter = 'Green'
-            self.team_color = [0, 0, 255]
-            self.prey_color = [255, 0, 0]
-            self.hunter_color = [0, 255, 0]
+            self.team_players = red_players_list
+            self.prey_team_players = green_players_list
+            self.hunter_team_players = blue_players_list
         elif self.name in green_players_list:
             self.team = 'Green'
             self.prey = 'Red'
             self.hunter = 'Blue'
-            self.team_color = [0, 255, 0]
-            self.prey_color = [0, 0, 255]
-            self.hunter_color = [255, 0, 0]
+            self.team_players = green_players_list
+            self.prey_team_players = blue_players_list
+            self.hunter_team_players = red_players_list
         elif self.name in blue_players_list:
             self.team = 'Blue'
             self.prey = 'Green'
             self.hunter = 'Red'
-            self.team_color = [255, 0, 0]
-            self.prey_color = [0, 255, 0]
-            self.hunter_color = [0, 0, 255]
+            self.team_players = blue_players_list
+            self.prey_team_players = red_players_list
+            self.hunter_team_players = green_players_list
         else:
             self.team = 'Joker'
+
+    # ------------------------------------------------------
+    #             Terminal Printing Information
+    # ------------------------------------------------------
 
     def information(self, red_players_list, green_players_list, blue_players_list):
         if self.team == 'Red':
@@ -97,6 +123,12 @@ class Driver():
                 red_players_list) + " and fleeing from " + str(green_players_list))
         else:
             rospy.loginfo('You are a joker and you can just annoy the others!')
+
+    # ------------------------------------------------------
+    # ------------------------------------------------------
+    #               CallBack Functions
+    # ------------------------------------------------------
+    # ------------------------------------------------------
 
     def goalReceivedCallback(self, goal_msg):
         rospy.loginfo('Received new goal')
@@ -179,83 +211,117 @@ class Driver():
 
     def cameraCallback(self, msg):
 
-        # Convert from message to cv2 image
+        # Convert subscribed image msg to cv2 image
         bridge = CvBridge()
         self.cv_image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
-        # Creating masks for each of the robots colors
-        self.blue_mask = cv2.inRange(self.cv_image, (
-            self.blue_limits['B']['min'], self.blue_limits['G']['min'], self.blue_limits['R']['min']),
-                                     (self.blue_limits['B']['max'], self.blue_limits['G']['max'],
-                                      self.blue_limits['R']['max']))
+        if self.debug:
+            centroid = self.getCentroid(self.cv_image, 'Red')
+            rospy.loginfo(str(centroid))
+        # if self.debug:
+        #     cv2.namedWindow(self.name)
+        #     cv2.waitKey(1)
+        #     # print(str(self.centroids[1][0]))
+        #     cv2.putText(self.mask, str('hellooo'), org=(100, 100),
+        #                 fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=5, color=(255, 0, 0), thickness=3)
+        #     cv2.imshow(self.name, self.mask)
+        #     rospy.loginfo('debug print')
 
-        self.red_mask = cv2.inRange(self.cv_image, (
-            self.red_limits['B']['min'], self.red_limits['G']['min'], self.red_limits['R']['min']),
+    def getCentroid(self, image, team):
+        """
+            Create a mask with the largest blob of mask_original and return its centroid coordinates
+            :param team: Team name - String
+            :param image: Cv2 image - Uint8
+            :return centroid: list of tuples with (x,y) coordinates of the largest object
+            """
+
+        if team == 'Red':
+            self.mask = cv2.inRange(image, (
+                self.red_limits['B']['min'], self.red_limits['G']['min'], self.red_limits['R']['min']),
                                     (self.red_limits['B']['max'], self.red_limits['G']['max'],
                                      self.red_limits['R']['max']))
 
-        self.green_mask = cv2.inRange(self.cv_image, (
-            self.green_limits['B']['min'], self.green_limits['G']['min'], self.green_limits['R']['min']),
-                                      (self.green_limits['B']['max'], self.green_limits['G']['max'],
-                                       self.green_limits['R']['max']))
+        elif team == 'Green':
+            self.mask = cv2.inRange(image, (
+                self.green_limits['B']['min'], self.green_limits['G']['min'], self.green_limits['R']['min']),
+                                    (self.green_limits['B']['max'], self.green_limits['G']['max'],
+                                     self.green_limits['R']['max']))
 
-        self.exist_image = True
+        elif team == 'Blue':
+            self.mask = cv2.inRange(image, (
+                self.blue_limits['B']['min'], self.blue_limits['G']['min'], self.blue_limits['R']['min']),
+                                    (self.blue_limits['B']['max'], self.blue_limits['G']['max'],
+                                     self.blue_limits['R']['max']))
 
-        if self.debug:
-            cv2.namedWindow(self.name)
-            cv2.imshow(self.name, self.green_mask)
-            cv2.waitKey(1)
+        # Extract results from mask
+        results = cv2.connectedComponentsWithStats(self.mask, self.connectivity, ltype=cv2.CV_32S)
+        no_labels = results[0]
+        labels = results[1]
+        stats = results[2]
+        centroids = results[3]
 
-    def getCentroid(self):
+        # Initialize variables
+        maximum_area = 0
+        largest_object_idx = 1
+        player_detected = True
+        object_area = 0
 
-        global object_area
+        for i in range(1, no_labels):
+            object_area = stats[i, cv2.CC_STAT_AREA]
+            if object_area > maximum_area:
+                maximum_area = object_area
+                largest_object_idx = i
 
-        # Extract image size parameters if any image is detected
-        if self.exist_image:
-            self.height = self.cv_image.shape[0]
-            self.width = self.cv_image.shape[1]
+        # Used only for eliminating noise detection
+        if object_area < 30:
+            player_detected = False
 
-        # Creating list of masks, centroids and biggest object found
-        masks = [self.blue_mask, self.green_mask, self.red_mask]
-        biggest_objects = []
-        self.centroids = []
+        # Append tuples of centroid coordinates if a player is detected
+        if player_detected:
+            x, y = centroids[largest_object_idx]
+            x = int(x)
+            y = int(y)
+            centroid_coordinates = (x, y)
+            # self.centroids.append(centroid_coordinates)
 
-        # Loop the masks list
-        for mask in masks:
-            results = cv2.connectedComponentsWithStats(mask, self.connectivity, ltype=cv2.CV_32S)
-            no_labels = results[0]
-            labels = results[1]
-            stats = results[2]
-            centroids = results[3]
 
-            maximum_area = 0
-            object_idx = 1
-            player_detected = True
 
-            for i in range(1, no_labels):
+        # # Convert labels into uint8 and append it to list
+        # biggest_object = (labels == largest_object_idx)
+        # biggest_object = biggest_object.astype(np.uint8) * 255
+        # biggest_objects.append(biggest_object)
 
-                object_area = stats[i, cv2.CC_STAT_AREA]
+        return centroid_coordinates
 
-                if object_area > maximum_area:
-                    maximum_area = object_area
-                    object_idx = i
+    def lidarScanCallback(self, msgScan):
 
-            # Used only for eliminating noise detection
-            if object_area < 30:
-                player_detected = False
+        self.laser_subscriber = msgScan
 
-            # Convert labels into uint8 and append it to list
-            biggest_object = (labels == object_idx)
-            biggest_object = biggest_object.astype(np.uint8) * 255
-            biggest_objects.append(biggest_object)
+        # Initializing distance and angles arrays
+        distances = np.array([])
+        angles = np.array([])
 
-            # Append tuples of centroid coordinates if a player is detected
-            if player_detected:
-                centroid_coordinates = centroids[object_idx, :].astype(np.uint)
-                centroid_coordinates = tuple(centroid_coordinates)
-                self.centroids.append(centroid_coordinates)
+        for i in range(len(msgScan.ranges)):
+            angle = degrees(i * msgScan.angle_increment)
+
+            if msgScan.ranges[i] > self.MAX_LIDAR_DISTANCE:
+                distance = self.MAX_LIDAR_DISTANCE
+
+            elif msgScan.ranges[i] < msgScan.range_min:
+                distance = msgScan.range_min
+                # For real robot - protection
+                if msgScan.ranges[i] < 0.01:
+                    distance = self.MAX_LIDAR_DISTANCE
+
             else:
-                self.centroids.append(None)
+                distance = msgScan.ranges[i]
+
+            distances = np.append(distances, distance)
+            angles = np.append(angles, angle)
+
+        # distances in [m], angles in [degrees]
+        return (distances, angles)
+
 
 def main():
     # ------------------------------------------------------
