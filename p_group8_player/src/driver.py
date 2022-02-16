@@ -16,7 +16,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 
-
+# global centroid
 
 class Driver():
     def __init__(self):
@@ -24,7 +24,7 @@ class Driver():
         self.team = 'Not defined'
         self.prey = 'Not defined'
         self.hunter = 'Not defined'
-        self.centroids = []
+        self.centroid = []
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -56,7 +56,6 @@ class Driver():
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
         self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
         self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
-        self.odom_sub = rospy.Subscriber(self.name + "/odom", Odometry, self.odomCallback)
 
         # Defining threshold limits for image processing masks
         self.blue_limits = {'B': {'max': 255, 'min': 100}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 50, 'min': 0}}
@@ -210,22 +209,27 @@ class Driver():
         return angle, speed
 
     def cameraCallback(self, msg):
-
+        # global centroid
         # Convert subscribed image msg to cv2 image
         bridge = CvBridge()
         self.cv_image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
+        centroid_hunter = self.getCentroid(self.cv_image, self.hunter)
+        (x_hunter, y_hunter) = centroid_hunter
+
+        centroid_prey = self.getCentroid(self.cv_image, self.prey)
+        (x_prey, y_prey) = centroid_prey
+
         if self.debug:
-            centroid = self.getCentroid(self.cv_image, 'Red')
-            rospy.loginfo(str(centroid))
-        # if self.debug:
-        #     cv2.namedWindow(self.name)
-        #     cv2.waitKey(1)
-        #     # print(str(self.centroids[1][0]))
-        #     cv2.putText(self.mask, str('hellooo'), org=(100, 100),
-        #                 fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=5, color=(255, 0, 0), thickness=3)
-        #     cv2.imshow(self.name, self.mask)
-        #     rospy.loginfo('debug print')
+            cv2.namedWindow(self.name + str(self.hunter))
+            cv2.putText(self.mask, str(centroid_hunter) + 'hunter', org=(x_hunter, y_hunter),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=5, color=(255, 0, 0), thickness=3)
+            cv2.imshow(self.name + str(self.hunter), self.mask)
+
+            cv2.namedWindow(self.name + str(self.prey))
+            cv2.putText(self.mask, str(centroid_prey) + 'prey', org=(x_prey, y_prey),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=5, color=(255, 0, 0), thickness=3)
+            cv2.imshow(self.name + str(self.prey), self.mask)
 
     def getCentroid(self, image, team):
         """
@@ -234,6 +238,8 @@ class Driver():
             :param image: Cv2 image - Uint8
             :return centroid: list of tuples with (x,y) coordinates of the largest object
             """
+
+        # global centroid
 
         if team == 'Red':
             self.mask = cv2.inRange(image, (
@@ -266,6 +272,7 @@ class Driver():
         largest_object_idx = 1
         player_detected = True
         object_area = 0
+        centroid = (0, 0)
 
         for i in range(1, no_labels):
             object_area = stats[i, cv2.CC_STAT_AREA]
@@ -282,17 +289,17 @@ class Driver():
             x, y = centroids[largest_object_idx]
             x = int(x)
             y = int(y)
-            centroid_coordinates = (x, y)
-            # self.centroids.append(centroid_coordinates)
+            centroid = (x, y)
 
 
-
-        # # Convert labels into uint8 and append it to list
         # biggest_object = (labels == largest_object_idx)
         # biggest_object = biggest_object.astype(np.uint8) * 255
-        # biggest_objects.append(biggest_object)
 
-        return centroid_coordinates
+
+        return centroid
+
+
+
 
     def lidarScanCallback(self, msgScan):
 
