@@ -15,6 +15,7 @@ from math import *
 from std_msgs.msg import String
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
+from scipy.spatial import distance
 
 
 class Driver():
@@ -324,6 +325,10 @@ class Driver():
 
         # If it detects a prey and a hunter, the player will make a decision based on the distance between both
         if self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0):
+            distance_hunter_to_prey = sqrt((self.centroid_hunter[0]-self.centroid_prey[0])^2
+                                           + (self.centroid_hunter[1]-self.centroid_prey[1])^2)
+            print(distance_hunter_to_prey)
+
             # if distance_hunter_to_prey > threshold:
             #     self.state = 'attack'
             # else:
@@ -336,34 +341,34 @@ class Driver():
 
 
 
-    # def lidarScanCallback(self, msgScan):
-    #
-    #     self.laser_subscriber = msgScan
-    #
-    #     # Initializing distance and angles arrays
-    #     distances = np.array([])
-    #     angles = np.array([])
-    #
-    #     for i in range(len(msgScan.ranges)):
-    #         angle = degrees(i * msgScan.angle_increment)
-    #
-    #         if msgScan.ranges[i] > self.MAX_LIDAR_DISTANCE:
-    #             distance = self.MAX_LIDAR_DISTANCE
-    #
-    #         elif msgScan.ranges[i] < msgScan.range_min:
-    #             distance = msgScan.range_min
-    #             # For real robot - protection
-    #             if msgScan.ranges[i] < 0.01:
-    #                 distance = self.MAX_LIDAR_DISTANCE
-    #
-    #         else:
-    #             distance = msgScan.ranges[i]
-    #
-    #         distances = np.append(distances, distance)
-    #         angles = np.append(angles, angle)
-    #
-    #     # distances in [m], angles in [degrees]
-    #     return (distances, angles)
+    def lidarScanCallback(self, msgScan):
+
+        self.laser_subscriber = msgScan
+
+        # Initializing distance and angles arrays
+        distances = np.array([])
+        angles = np.array([])
+
+        for i in range(len(msgScan.ranges)):
+            angle = degrees(i * msgScan.angle_increment)
+
+            if msgScan.ranges[i] > self.MAX_LIDAR_DISTANCE:
+                distance = self.MAX_LIDAR_DISTANCE
+
+            elif msgScan.ranges[i] < msgScan.range_min:
+                distance = msgScan.range_min
+                # For real robot - protection
+                if msgScan.ranges[i] < 0.01:
+                    distance = self.MAX_LIDAR_DISTANCE
+
+            else:
+                distance = msgScan.ranges[i]
+
+            distances = np.append(distances, distance)
+            angles = np.append(angles, angle)
+
+        # distances in [m], angles in [degrees]
+        return (distances, angles)
 
 
 def main():
