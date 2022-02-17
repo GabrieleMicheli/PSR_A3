@@ -16,7 +16,6 @@ from std_msgs.msg import String
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 
-# global centroid
 
 class Driver():
     def __init__(self):
@@ -24,7 +23,9 @@ class Driver():
         self.team = 'Not defined'
         self.prey = 'Not defined'
         self.hunter = 'Not defined'
-        self.centroid = []
+        self.centroid_hunter = (0, 0)
+        self.centroid_prey = (0, 0)
+        self.state = 'wait'
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -209,27 +210,36 @@ class Driver():
         return angle, speed
 
     def cameraCallback(self, msg):
-        # global centroid
+
         # Convert subscribed image msg to cv2 image
         bridge = CvBridge()
         self.cv_image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
-        centroid_hunter = self.getCentroid(self.cv_image, self.hunter)
+        # Calling getCentroid function and extracting hunter centroid coordinates and his mask
+        centroid_hunter, frame_hunter = self.getCentroid(self.cv_image, self.hunter)
         (x_hunter, y_hunter) = centroid_hunter
+        self.centroid_hunter = (x_hunter, y_hunter)
 
-        centroid_prey = self.getCentroid(self.cv_image, self.prey)
+        # Calling getCentroid function and extracting prey centroid coordinates and his mask
+        centroid_prey, frame_prey = self.getCentroid(self.cv_image, self.prey)
         (x_prey, y_prey) = centroid_prey
+        self.centroid_prey = (x_prey, y_prey)
 
         if self.debug:
-            cv2.namedWindow(self.name + str(self.hunter))
-            cv2.putText(self.mask, str(centroid_hunter) + 'hunter', org=(x_hunter, y_hunter),
-                        fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=5, color=(255, 0, 0), thickness=3)
-            cv2.imshow(self.name + str(self.hunter), self.mask)
 
-            cv2.namedWindow(self.name + str(self.prey))
-            cv2.putText(self.mask, str(centroid_prey) + 'prey', org=(x_prey, y_prey),
-                        fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=5, color=(255, 0, 0), thickness=3)
-            cv2.imshow(self.name + str(self.prey), self.mask)
+            if (x_hunter, y_hunter) != (0, 0):
+                cv2.putText(frame_hunter, 'Hunter!', org=(x_hunter, y_hunter),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=2, color=(0, 0, 255), thickness=5)
+
+            if (x_prey, y_prey) != (0, 0):
+                cv2.putText(frame_prey, 'Prey!', org=(x_prey, y_prey),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=2, color=(0, 255, 0), thickness=5)
+
+            # Merge the prey and hunter masks and plot it
+            hunters_n_preys = cv2.bitwise_or(frame_prey, frame_hunter)
+            cv2.namedWindow(self.name)
+            cv2.imshow(self.name, hunters_n_preys)
+            cv2.waitKey(1)
 
     def getCentroid(self, image, team):
         """
@@ -237,9 +247,10 @@ class Driver():
             :param team: Team name - String
             :param image: Cv2 image - Uint8
             :return centroid: list of tuples with (x,y) coordinates of the largest object
-            """
+            :return player_identified: Cv2 image mask - Uint8
+        """
 
-        # global centroid
+        player_identified = np.copy(image)
 
         if team == 'Red':
             self.mask = cv2.inRange(image, (
@@ -258,7 +269,6 @@ class Driver():
                 self.blue_limits['B']['min'], self.blue_limits['G']['min'], self.blue_limits['R']['min']),
                                     (self.blue_limits['B']['max'], self.blue_limits['G']['max'],
                                      self.blue_limits['R']['max']))
-
 
         # Extract results from mask
         results = cv2.connectedComponentsWithStats(self.mask, self.connectivity, ltype=cv2.CV_32S)
@@ -286,49 +296,74 @@ class Driver():
 
         # Append tuples of centroid coordinates if a player is detected
         if player_detected:
+            # Extract the centroid with the largest object idx
             x, y = centroids[largest_object_idx]
             x = int(x)
             y = int(y)
             centroid = (x, y)
 
+            # Mask the largest object and paint with green
+            largest_object = (labels == largest_object_idx)
+            largest_object = largest_object.astype(np.uint8) * 255
+            player_identified[largest_object == 255] = (255, 255, 255)
 
-        # biggest_object = (labels == largest_object_idx)
-        # biggest_object = biggest_object.astype(np.uint8) * 255
+            # Identify in the image the centroid with red
+            player_identified = cv2.circle(player_identified, (x, y), 15, (0, 0, 255), -1)
+
+        return centroid, player_identified
+
+    def decisionMaking(self):
+
+        # If it detects a hunter and no prey, the player will flee away
+        if self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0):
+            self.state = 'flee'
+
+        # If it detects a prey and no hunter, the player will attack
+        if self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0):
+            self.state = 'attack'
+
+        # If it detects a prey and a hunter, the player will make a decision based on the distance between both
+        if self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0):
+            # if distance_hunter_to_prey > threshold:
+            #     self.state = 'attack'
+            # else:
+            #     self.state = 'flee'
+
+        # If it detects no prey and no hunter, the player will wait and walk around
+        if self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0):
+            self.state = 'wait'
 
 
-        return centroid
 
 
-
-
-    def lidarScanCallback(self, msgScan):
-
-        self.laser_subscriber = msgScan
-
-        # Initializing distance and angles arrays
-        distances = np.array([])
-        angles = np.array([])
-
-        for i in range(len(msgScan.ranges)):
-            angle = degrees(i * msgScan.angle_increment)
-
-            if msgScan.ranges[i] > self.MAX_LIDAR_DISTANCE:
-                distance = self.MAX_LIDAR_DISTANCE
-
-            elif msgScan.ranges[i] < msgScan.range_min:
-                distance = msgScan.range_min
-                # For real robot - protection
-                if msgScan.ranges[i] < 0.01:
-                    distance = self.MAX_LIDAR_DISTANCE
-
-            else:
-                distance = msgScan.ranges[i]
-
-            distances = np.append(distances, distance)
-            angles = np.append(angles, angle)
-
-        # distances in [m], angles in [degrees]
-        return (distances, angles)
+    # def lidarScanCallback(self, msgScan):
+    #
+    #     self.laser_subscriber = msgScan
+    #
+    #     # Initializing distance and angles arrays
+    #     distances = np.array([])
+    #     angles = np.array([])
+    #
+    #     for i in range(len(msgScan.ranges)):
+    #         angle = degrees(i * msgScan.angle_increment)
+    #
+    #         if msgScan.ranges[i] > self.MAX_LIDAR_DISTANCE:
+    #             distance = self.MAX_LIDAR_DISTANCE
+    #
+    #         elif msgScan.ranges[i] < msgScan.range_min:
+    #             distance = msgScan.range_min
+    #             # For real robot - protection
+    #             if msgScan.ranges[i] < 0.01:
+    #                 distance = self.MAX_LIDAR_DISTANCE
+    #
+    #         else:
+    #             distance = msgScan.ranges[i]
+    #
+    #         distances = np.append(distances, distance)
+    #         angles = np.append(angles, angle)
+    #
+    #     # distances in [m], angles in [degrees]
+    #     return (distances, angles)
 
 
 def main():
