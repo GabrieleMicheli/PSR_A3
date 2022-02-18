@@ -56,7 +56,27 @@ To open the initial **rviz** setup, run the command: \
 Run the **teleop.launch** file to move the robot using the computer's keyboard. To do this, run the command: \
 ```roslaunch p_group8_bringup teleop.launch``` 
 ###### Teleop-joy
-If you prefer move the robot using a joystick, this is possible running the command: \
+Using the [joy](http://wiki.ros.org/joy) package it's possible to control the car using a videogame controller.
+To run this code run the command:
+
+```roslaunch p_group8_bringup fnr_gazebo.launch```
+
+to create the FNR track, use the:
+
+```roslaunch p_group8_bringup bringup.launch```
+
+command to spawn a regular robot and finally run the:
+
 ```roslaunch p_group8_bringup joy_teleop.launch```
 
-**GO AHEAD...**
+command to launch the controller.
+
+Here are the buttons used and their functionalities:
+- **Left stick**: controls angular velocity
+- **A button**: defines linear velocity as 1;
+- **B button**: defines linear velocity as 0;
+- **X button**: adds 0.1 to linear velocity;
+- **Y button**: decreases 0.1 to linear velocity;
+- **Right trigger**: temporarily adds 0.5 to linear velocity;
+
+You can see a video demo [here](https://www.youtube.com/watch?v=CBHNlbpLpZM/)!
