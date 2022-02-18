@@ -4,10 +4,12 @@ import copy
 import math
 import cv2
 import rospy
+import std_msgs
 import tf2_ros
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist, PoseStamped
-from sensor_msgs.msg import Image
+from sensor_msgs import point_cloud2
+from sensor_msgs.msg import Image, PointCloud2, PointField
 from driver_functions import *
 import numpy as np
 import logging
@@ -28,6 +30,7 @@ class Driver():
         self.centroid_prey = (0, 0)
         self.state = 'wait'
         self.distance_hunter_to_prey = 0
+        self.closest_object_angle = None
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -59,6 +62,7 @@ class Driver():
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
         self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
         self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
+        self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
 
         # Defining threshold limits for image processing masks
         self.blue_limits = {'B': {'max': 255, 'min': 100}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 50, 'min': 0}}
@@ -343,33 +347,39 @@ class Driver():
 
     def lidarScanCallback(self, msgScan):
 
-        self.laser_subscriber = msgScan
+        # self.laser_subscriber = msgScan
 
-        # Initializing distance and angles arrays
-        distances = np.array([])
-        angles = np.array([])
+        # Get points to RVIZ
+        header = std_msgs.msg.Header(seq=msgScan.header.seq, stamp=msgScan.header.stamp,
+                                     frame_id=msgScan.header.frame_id)
+        fields = [PointField('x', 0, PointField.FLOAT32, 1),
+                  PointField('y', 4, PointField.FLOAT32, 1),
+                  PointField('z', 8, PointField.FLOAT32, 1)]
 
-        for i in range(len(msgScan.ranges)):
-            angle = degrees(i * msgScan.angle_increment)
+        # convert from polar coordinates to cartesian and fill the point cloud
+        points = []
+        dist_angle = []
+        for idx, range in enumerate(msgScan.ranges):
+            theta = msgScan.angle_min + msgScan.angle_increment * idx
+            x = range * math.cos(theta)
+            y = range * math.sin(theta)
+            points.append([x, y, 0])
 
-            if msgScan.ranges[i] > self.MAX_LIDAR_DISTANCE:
-                distance = self.MAX_LIDAR_DISTANCE
+        pc2 = point_cloud2.create_cloud(header, fields, points)  # create point_cloud2 data structure
+        self.publisher_laser_distance.publish(
+            pc2)  # publish (will automatically convert from point_cloud2 to Pointcloud2 message)
 
-            elif msgScan.ranges[i] < msgScan.range_min:
-                distance = msgScan.range_min
-                # For real robot - protection
-                if msgScan.ranges[i] < 0.01:
-                    distance = self.MAX_LIDAR_DISTANCE
+        # Shortest obstacle
+        rospy.loginfo('Find shortest obstacle')
 
-            else:
-                distance = msgScan.ranges[i]
+        if msgScan.ranges != []:  # If detects something
+            min_range_detected_idx = msgScan.ranges.index(min(msgScan.ranges))  # find shortest distance index
+            self.closest_object_angle = msgScan.angle_min + min_range_detected_idx * msgScan.angle_increment  # angle to closest object
 
-            distances = np.append(distances, distance)
-            angles = np.append(angles, angle)
+        else:
+            self.closest_object_angle = None
 
-        # distances in [m], angles in [degrees]
-        return (distances, angles)
-
+        rospy.loginfo('closest object angle: ' + str(self.closest_object_angle))
 
 def main():
     # ------------------------------------------------------
