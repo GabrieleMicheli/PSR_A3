@@ -381,6 +381,7 @@ class Driver():
 
         rospy.loginfo('closest object angle: ' + str(self.closest_object_angle))
 
+
 def main():
     # ------------------------------------------------------
     # Initialization
