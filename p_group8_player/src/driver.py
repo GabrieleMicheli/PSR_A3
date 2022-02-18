@@ -15,10 +15,9 @@ import numpy as np
 import logging
 from math import *
 from std_msgs.msg import String
-from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
-from scipy.spatial import distance
-
+from sensor_msgs.msg import LaserScan, PointCloud2, PointField
+from sensor_msgs import point_cloud2
 
 class Driver():
     def __init__(self):
@@ -61,7 +60,11 @@ class Driver():
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
         self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
-        self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
+        # self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
+
+        # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
+        #
+        # self.laser_scan_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.laser_scan_callback)
         self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
 
         # Defining threshold limits for image processing masks
@@ -86,7 +89,6 @@ class Driver():
     # Function to check the players team - harcoded
     # Not hardcoded anymore what do you think?
     def getTeam(self, red_players_list, green_players_list, blue_players_list):
-
         if self.name in red_players_list:
             self.team = 'Red'
             self.prey = 'Blue'
@@ -129,9 +131,7 @@ class Driver():
             rospy.loginfo('You are a joker and you can just annoy the others!')
 
     # ------------------------------------------------------
-    # ------------------------------------------------------
     #               CallBack Functions
-    # ------------------------------------------------------
     # ------------------------------------------------------
 
     def goalReceivedCallback(self, goal_msg):
@@ -380,6 +380,63 @@ class Driver():
             self.closest_object_angle = None
 
         rospy.loginfo('closest object angle: ' + str(self.closest_object_angle))
+
+    # def laser_scan_callback(self, laser_scan_msg):
+    #     # print(laser_scan_msg.ranges[0])
+    #     # object_detected = False
+    #     # for i in range(len(laser_scan_msg.ranges)):
+    #     #     if not object_detected:
+    #     #         if laser_scan_msg.ranges[i] > laser_scan_msg.range_min and laser_scan_msg.ranges[i] < laser_scan_msg.range_max:
+    #     #             object_detected = True
+    #     # if object_detected:
+    #     #     print('Object detected')
+    #     # else:
+    #     #     print('No object detected') # if no object is detected, the robot has to move around
+    #
+    #     header = std_msgs.msg.Header(seq = laser_scan_msg.header.seq, stamp = laser_scan_msg.header.stamp, frame_id = laser_scan_msg.header.frame_id)
+    #     fields = [PointField('x', 0, PointField.FLOAT32, 1),
+    #               PointField('y', 4, PointField.FLOAT32, 1),
+    #               PointField('z', 8, PointField.FLOAT32, 1)]
+    #
+    #     # convert from polar coordinates to cartesian and fill the point cloud
+    #     points = []
+    #     z = 0
+    #     for idx, range in enumerate(laser_scan_msg.ranges):
+    #         theta = laser_scan_msg.angle_min + laser_scan_msg.angle_increment * idx
+    #         x = range * math.cos(theta)
+    #         y = range * math.sin(theta)
+    #         points.append([x, y, z])
+    #
+    #     pc2 = point_cloud2.create_cloud(header, fields, points)  # create point_cloud2 data structure
+    #     self.publisher_point_cloud2.publish(pc2)  # publish (will automatically convert from point_cloud2 to Pointcloud2 message)
+    #     rospy.loginfo('X: ' + str(x) + 'Y: ' + str(y) + 'theta: ' + str(theta))
+    #
+    #     # detecting objects
+    #     x_prev, y_prev = 1000, 1000
+    #     dist_threshold = 0.5
+    #     z = 0
+    #
+    #     for idx, range in enumerate(laser_scan_msg.ranges):
+    #
+    #         if range < 0.1:
+    #             continue
+    #
+    #         theta = laser_scan_msg.angle_min + laser_scan_msg.angle_increment * idx
+    #         x = range * math.cos(theta)
+    #         y = range * math.sin(theta)
+    #
+    #         # Should I create a new cluster?
+    #         dist = math.sqrt((x_prev - x) ** 2 + (y_prev - y) ** 2)
+    #         if dist > dist_threshold and dist < dist_threshold:
+    #             # wall
+    #         elseif:
+    #
+    #
+    #         last_marker = marker_array.markers[-1]
+    #         last_marker.points.append(Point(x=x, y=y, z=z))
+    #
+    #         x_prev = x
+    #         y_prev = y
 
 
 def main():

@@ -32,7 +32,7 @@
             <arg name="name" value="$(arg player_name)"/>
         </include>
 
-        <!-- Include drivers-->
+        <!-- Include drivers -->
         <group if="$(arg driver)">
             <node name="driver" pkg="p_group8_player" type="driver.py" output="screen">
                     <param name="debug" value="$(arg debug)"/>
