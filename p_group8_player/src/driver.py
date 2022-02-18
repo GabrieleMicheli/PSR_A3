@@ -27,6 +27,7 @@ class Driver():
         self.centroid_hunter = (0, 0)
         self.centroid_prey = (0, 0)
         self.state = 'wait'
+        self.distance_hunter_to_prey = 0
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -63,8 +64,6 @@ class Driver():
         self.blue_limits = {'B': {'max': 255, 'min': 100}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 50, 'min': 0}}
         self.red_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 255, 'min': 100}}
         self.green_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 255, 'min': 100}, 'R': {'max': 50, 'min': 0}}
-
-        self.index_color = {'blue': 0, 'green': 1, 'red': 2}
 
         self.connectivity = 4
 
@@ -218,6 +217,7 @@ class Driver():
 
         # Calling getCentroid function and extracting hunter centroid coordinates and his mask
         centroid_hunter, frame_hunter = self.getCentroid(self.cv_image, self.hunter)
+        self.decisionMaking()
         (x_hunter, y_hunter) = centroid_hunter
         self.centroid_hunter = (x_hunter, y_hunter)
 
@@ -227,7 +227,7 @@ class Driver():
         self.centroid_prey = (x_prey, y_prey)
 
         if self.debug:
-
+            rospy.loginfo(self.distance_hunter_to_prey)
             if (x_hunter, y_hunter) != (0, 0):
                 cv2.putText(frame_hunter, 'Hunter!', org=(x_hunter, y_hunter),
                             fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=2, color=(0, 0, 255), thickness=5)
@@ -325,21 +325,21 @@ class Driver():
 
         # If it detects a prey and a hunter, the player will make a decision based on the distance between both
         if self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0):
-            distance_hunter_to_prey = sqrt((self.centroid_hunter[0]-self.centroid_prey[0])^2
-                                           + (self.centroid_hunter[1]-self.centroid_prey[1])^2)
-            print(distance_hunter_to_prey)
 
-            # if distance_hunter_to_prey > threshold:
-            #     self.state = 'attack'
-            # else:
-            #     self.state = 'flee'
+            # Calculates the euclidean distance between the two centroids
+            self.distance_hunter_to_prey = sqrt((self.centroid_hunter[0] - self.centroid_prey[0]) ** 2
+                                                + (self.centroid_hunter[1] - self.centroid_prey[1]) ** 2)
+            # rospy.loginfo(self.distance_hunter_to_prey)
+
+            # Threshold training with gazebo
+            if self.distance_hunter_to_prey > 400:
+                self.state = 'attack'
+            else:
+                self.state = 'flee'
 
         # If it detects no prey and no hunter, the player will wait and walk around
         if self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0):
             self.state = 'wait'
-
-
-
 
     def lidarScanCallback(self, msgScan):
 
