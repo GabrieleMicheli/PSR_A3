@@ -1,11 +1,9 @@
 <?xml version="1.0" ?>
 <robot name="team_hunt_player" xmlns:xacro="http://ros.org/wiki/xacro">
 
-  <!--  Arguments - arguments are used as: $(arg argument) -->
   <xacro:arg name="player_name"  default="p_randomName"/>
   <xacro:arg name="player_color"  default="Red"/>
 
-  <!-- Copying arguments to properties so that they are visible in the included xacros - properties are used as ${property} -->
   <xacro:property name="player_name" value="$(arg player_name)"/>
   <xacro:property name="player_color" value="$(arg player_color)"/>
 
