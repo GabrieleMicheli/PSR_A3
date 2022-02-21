@@ -8,7 +8,30 @@
 - Gabriele Micheli
 
 ## Play description
-EXPLAIN...
+
+The play starts with three teams: red, green and blue. Every team has 3 players (ex. **R1**, **R2** and **R3** for the read team). \
+Every team can hunt another player and be also be hunted: 
+- **Red** hunt **green** and flee from **blue**
+- **Green** hunt **blue** and flee from **red**
+- **Blue** hunt **red** and flee from **green** 
+
+The hunter catch the prey when the robots are in contact (collision). The goal of the play is to get the maximum team score.  
+
+###### Arena description
+The game's arena consists of a football field but with a fence around it that prevents robots from escaping their hunters by always moving in the same direction. 
+
+There are three versions of the arena: 
+- **th_arena_1**
+- **th_arena_2**
+- **th_arena_3**
+
+The last two have walls that turn the arena into a labyrinth.
+
+###### The referee
+Since it is always necessary to have someone who can be insulted freely to check that the rules of the game are being followed, it is necessary the presence of a referee. The referee basically checks if there's tcollision between a hunter and a prey and deducts points from the prey's team.
+
+P.S. The referee is given already developed from @miguelriemoliveira.
+
 For further details, see: [Part 14 (TeamHunt)](https://github.com/miguelriemoliveira/psr_21-22/tree/main/Parte14).
 
 ## How to run the program? 
@@ -33,7 +56,27 @@ To open the initial **rviz** setup, run the command: \
 Run the **teleop.launch** file to move the robot using the computer's keyboard. To do this, run the command: \
 ```roslaunch p_group8_bringup teleop.launch``` 
 ###### Teleop-joy
-If you prefer move the robot using a joystick, this is possible running the command: \
+Using the [joy](http://wiki.ros.org/joy) package it's possible to control the car using a videogame controller.
+To run this code run the command:
+
+```roslaunch p_group8_bringup fnr_gazebo.launch```
+
+to create the FNR track, use the:
+
+```roslaunch p_group8_bringup bringup.launch```
+
+command to spawn a regular robot and finally run the:
+
 ```roslaunch p_group8_bringup joy_teleop.launch```
 
-**GO AHEAD...**
+command to launch the controller.
+
+Here are the buttons used and their functionalities:
+- **Left stick**: controls angular velocity
+- **A button**: defines linear velocity as 1;
+- **B button**: defines linear velocity as 0;
+- **X button**: adds 0.1 to linear velocity;
+- **Y button**: decreases 0.1 to linear velocity;
+- **Right trigger**: temporarily adds 0.5 to linear velocity;
+
+You can see a video demo [here](https://www.youtube.com/watch?v=CBHNlbpLpZM/)!

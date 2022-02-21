@@ -15,10 +15,9 @@ import numpy as np
 import logging
 from math import *
 from std_msgs.msg import String
-from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
-from scipy.spatial import distance
-
+from sensor_msgs.msg import LaserScan, PointCloud2, PointField
+from sensor_msgs import point_cloud2
 
 class Driver():
     def __init__(self):
@@ -61,7 +60,11 @@ class Driver():
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
         self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
-        self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
+        # self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
+
+        # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
+        #
+        # self.laser_scan_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.laser_scan_callback)
         self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
 
         # Defining threshold limits for image processing masks
@@ -71,22 +74,7 @@ class Driver():
 
         self.connectivity = 4
 
-        # Laser Scan Parameters
-        self.MAX_LIDAR_DISTANCE = 1.0
-        self.COLLISION_DISTANCE = 0.14  # LaserScan.range_min = 0.1199999
-        self.NEARBY_DISTANCE = 0.45
-
-        self.ZONE_0_LENGTH = 0.4
-        self.ZONE_1_LENGTH = 0.7
-
-        self.ANGLE_MAX = 360 - 1
-        self.ANGLE_MIN = 1 - 1
-        self.HORIZON_WIDTH = 75
-
-    # Function to check the players team - harcoded
-    # Not hardcoded anymore what do you think?
     def getTeam(self, red_players_list, green_players_list, blue_players_list):
-
         if self.name in red_players_list:
             self.team = 'Red'
             self.prey = 'Blue'
@@ -129,9 +117,7 @@ class Driver():
             rospy.loginfo('You are a joker and you can just annoy the others!')
 
     # ------------------------------------------------------
-    # ------------------------------------------------------
     #               CallBack Functions
-    # ------------------------------------------------------
     # ------------------------------------------------------
 
     def goalReceivedCallback(self, goal_msg):
@@ -333,6 +319,7 @@ class Driver():
             # Calculates the euclidean distance between the two centroids
             self.distance_hunter_to_prey = sqrt((self.centroid_hunter[0] - self.centroid_prey[0]) ** 2
                                                 + (self.centroid_hunter[1] - self.centroid_prey[1]) ** 2)
+
             # rospy.loginfo(self.distance_hunter_to_prey)
 
             # Threshold training with gazebo
@@ -380,6 +367,16 @@ class Driver():
             self.closest_object_angle = None
 
         rospy.loginfo('closest object angle: ' + str(self.closest_object_angle))
+
+    # def takeAction(self):
+    #
+    #     linear_vel = 0.5
+    #
+    #     # catch prey
+    #     if self.centroid_prey == (0, 0):
+    #         angular_vel_prey = 0.8
+    #     else:
+    #         angular_vel_prey = 0.001 * (self.shape[1] / 2 - self.point_p[0])
 
 
 def main():
