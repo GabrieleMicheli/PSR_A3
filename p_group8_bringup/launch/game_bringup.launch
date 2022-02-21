@@ -2,7 +2,6 @@
 <launch>
     <arg name="debug" default="false"/>
     <rosparam command="load" file="$(find p_group8_bringup)/params/game.yaml"/>
-
     <!-- CREATE TEAM RED -->
 
     <!-- Creating R1 (red1) robot -->
