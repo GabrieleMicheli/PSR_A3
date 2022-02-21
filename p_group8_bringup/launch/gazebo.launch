@@ -1,5 +1,4 @@
 <!-- Creating a world in GAZEBO -->
-
 <launch>
     <!--    Argument to choose the arena at the beginning of the gazebo spawn.-->
     <arg name="world" default="arena_1"/>
