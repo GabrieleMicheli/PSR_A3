@@ -4,12 +4,20 @@ import copy
 import math
 import cv2
 import rospy
+import std_msgs
 import tf2_ros
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist, PoseStamped
-from sensor_msgs.msg import Image
+from sensor_msgs import point_cloud2
+from sensor_msgs.msg import Image, PointCloud2, PointField
 from driver_functions import *
-
+import numpy as np
+import logging
+from math import *
+from std_msgs.msg import String
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import LaserScan, PointCloud2, PointField
+from sensor_msgs import point_cloud2
 
 class Driver():
     def __init__(self):
@@ -17,6 +25,11 @@ class Driver():
         self.team = 'Not defined'
         self.prey = 'Not defined'
         self.hunter = 'Not defined'
+        self.centroid_hunter = (0, 0)
+        self.centroid_prey = (0, 0)
+        self.state = 'wait'
+        self.distance_hunter_to_prey = 0
+        self.closest_object_angle = None
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -47,33 +60,62 @@ class Driver():
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
         self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
+        # self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
 
-    # function to check the players team - harcoded
+        # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
+        #
+        # self.laser_scan_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.laser_scan_callback)
+        self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
+
+        # Defining threshold limits for image processing masks
+        self.blue_limits = {'B': {'max': 255, 'min': 100}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 50, 'min': 0}}
+        self.red_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 255, 'min': 100}}
+        self.green_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 255, 'min': 100}, 'R': {'max': 50, 'min': 0}}
+
+        self.connectivity = 4
+
+        # Laser Scan Parameters
+        self.MAX_LIDAR_DISTANCE = 1.0
+        self.COLLISION_DISTANCE = 0.14  # LaserScan.range_min = 0.1199999
+        self.NEARBY_DISTANCE = 0.45
+
+        self.ZONE_0_LENGTH = 0.4
+        self.ZONE_1_LENGTH = 0.7
+
+        self.ANGLE_MAX = 360 - 1
+        self.ANGLE_MIN = 1 - 1
+        self.HORIZON_WIDTH = 75
+
+    # Function to check the players team - harcoded
+    # Not hardcoded anymore what do you think?
     def getTeam(self, red_players_list, green_players_list, blue_players_list):
-
         if self.name in red_players_list:
             self.team = 'Red'
             self.prey = 'Blue'
             self.hunter = 'Green'
-            self.team_color = [0, 0, 255]
-            self.prey_color = [255, 0, 0]
-            self.hunter_color = [0, 255, 0]
+            self.team_players = red_players_list
+            self.prey_team_players = green_players_list
+            self.hunter_team_players = blue_players_list
         elif self.name in green_players_list:
             self.team = 'Green'
             self.prey = 'Red'
             self.hunter = 'Blue'
-            self.team_color = [0, 255, 0]
-            self.prey_color = [0, 0, 255]
-            self.hunter_color = [255, 0, 0]
+            self.team_players = green_players_list
+            self.prey_team_players = blue_players_list
+            self.hunter_team_players = red_players_list
         elif self.name in blue_players_list:
             self.team = 'Blue'
             self.prey = 'Green'
             self.hunter = 'Red'
-            self.team_color = [255, 0, 0]
-            self.prey_color = [0, 255, 0]
-            self.hunter_color = [0, 0, 255]
+            self.team_players = blue_players_list
+            self.prey_team_players = red_players_list
+            self.hunter_team_players = green_players_list
         else:
             self.team = 'Joker'
+
+    # ------------------------------------------------------
+    #             Terminal Printing Information
+    # ------------------------------------------------------
 
     def information(self, red_players_list, green_players_list, blue_players_list):
         if self.team == 'Red':
@@ -87,6 +129,10 @@ class Driver():
                 red_players_list) + " and fleeing from " + str(green_players_list))
         else:
             rospy.loginfo('You are a joker and you can just annoy the others!')
+
+    # ------------------------------------------------------
+    #               CallBack Functions
+    # ------------------------------------------------------
 
     def goalReceivedCallback(self, goal_msg):
         rospy.loginfo('Received new goal')
@@ -168,21 +214,229 @@ class Driver():
         return angle, speed
 
     def cameraCallback(self, msg):
-        # Convert from message to cv2 image
-        img = self.cv_bridge.imgmsg_to_cv2(msg)
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
-        # Get an ima
+        # Convert subscribed image msg to cv2 image
+        bridge = CvBridge()
+        self.cv_image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
-        # x, y, w, h = cv2.boundingRect(cnt)
-        # cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        # Calling getCentroid function and extracting hunter centroid coordinates and his mask
+        centroid_hunter, frame_hunter = self.getCentroid(self.cv_image, self.hunter)
+        self.decisionMaking()
+        (x_hunter, y_hunter) = centroid_hunter
+        self.centroid_hunter = (x_hunter, y_hunter)
+
+        # Calling getCentroid function and extracting prey centroid coordinates and his mask
+        centroid_prey, frame_prey = self.getCentroid(self.cv_image, self.prey)
+        (x_prey, y_prey) = centroid_prey
+        self.centroid_prey = (x_prey, y_prey)
 
         if self.debug:
+            rospy.loginfo(self.distance_hunter_to_prey)
+            if (x_hunter, y_hunter) != (0, 0):
+                cv2.putText(frame_hunter, 'Hunter!', org=(x_hunter, y_hunter),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=2, color=(0, 0, 255), thickness=5)
+
+            if (x_prey, y_prey) != (0, 0):
+                cv2.putText(frame_prey, 'Prey!', org=(x_prey, y_prey),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=2, color=(0, 255, 0), thickness=5)
+
+            # Merge the prey and hunter masks and plot it
+            hunters_n_preys = cv2.bitwise_or(frame_prey, frame_hunter)
             cv2.namedWindow(self.name)
-            cv2.imshow(self.name, img)
+            cv2.imshow(self.name, hunters_n_preys)
             cv2.waitKey(1)
 
+    def getCentroid(self, image, team):
+        """
+            Create a mask with the largest blob of mask_original and return its centroid coordinates
+            :param team: Team name - String
+            :param image: Cv2 image - Uint8
+            :return centroid: list of tuples with (x,y) coordinates of the largest object
+            :return player_identified: Cv2 image mask - Uint8
+        """
 
+        player_identified = np.copy(image)
+
+        if team == 'Red':
+            self.mask = cv2.inRange(image, (
+                self.red_limits['B']['min'], self.red_limits['G']['min'], self.red_limits['R']['min']),
+                                    (self.red_limits['B']['max'], self.red_limits['G']['max'],
+                                     self.red_limits['R']['max']))
+
+        elif team == 'Green':
+            self.mask = cv2.inRange(image, (
+                self.green_limits['B']['min'], self.green_limits['G']['min'], self.green_limits['R']['min']),
+                                    (self.green_limits['B']['max'], self.green_limits['G']['max'],
+                                     self.green_limits['R']['max']))
+
+        elif team == 'Blue':
+            self.mask = cv2.inRange(image, (
+                self.blue_limits['B']['min'], self.blue_limits['G']['min'], self.blue_limits['R']['min']),
+                                    (self.blue_limits['B']['max'], self.blue_limits['G']['max'],
+                                     self.blue_limits['R']['max']))
+
+        # Extract results from mask
+        results = cv2.connectedComponentsWithStats(self.mask, self.connectivity, ltype=cv2.CV_32S)
+        no_labels = results[0]
+        labels = results[1]
+        stats = results[2]
+        centroids = results[3]
+
+        # Initialize variables
+        maximum_area = 0
+        largest_object_idx = 1
+        player_detected = True
+        object_area = 0
+        centroid = (0, 0)
+
+        for i in range(1, no_labels):
+            object_area = stats[i, cv2.CC_STAT_AREA]
+            if object_area > maximum_area:
+                maximum_area = object_area
+                largest_object_idx = i
+
+        # Used only for eliminating noise detection
+        if object_area < 30:
+            player_detected = False
+
+        # Append tuples of centroid coordinates if a player is detected
+        if player_detected:
+            # Extract the centroid with the largest object idx
+            x, y = centroids[largest_object_idx]
+            x = int(x)
+            y = int(y)
+            centroid = (x, y)
+
+            # Mask the largest object and paint with green
+            largest_object = (labels == largest_object_idx)
+            largest_object = largest_object.astype(np.uint8) * 255
+            player_identified[largest_object == 255] = (255, 255, 255)
+
+            # Identify in the image the centroid with red
+            player_identified = cv2.circle(player_identified, (x, y), 15, (0, 0, 255), -1)
+
+        return centroid, player_identified
+
+    def decisionMaking(self):
+
+        # If it detects a hunter and no prey, the player will flee away
+        if self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0):
+            self.state = 'flee'
+
+        # If it detects a prey and no hunter, the player will attack
+        if self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0):
+            self.state = 'attack'
+
+        # If it detects a prey and a hunter, the player will make a decision based on the distance between both
+        if self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0):
+
+            # Calculates the euclidean distance between the two centroids
+            self.distance_hunter_to_prey = sqrt((self.centroid_hunter[0] - self.centroid_prey[0]) ** 2
+                                                + (self.centroid_hunter[1] - self.centroid_prey[1]) ** 2)
+            # rospy.loginfo(self.distance_hunter_to_prey)
+
+            # Threshold training with gazebo
+            if self.distance_hunter_to_prey > 400:
+                self.state = 'attack'
+            else:
+                self.state = 'flee'
+
+        # If it detects no prey and no hunter, the player will wait and walk around
+        if self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0):
+            self.state = 'wait'
+
+    def lidarScanCallback(self, msgScan):
+
+        # self.laser_subscriber = msgScan
+
+        # Get points to RVIZ
+        header = std_msgs.msg.Header(seq=msgScan.header.seq, stamp=msgScan.header.stamp,
+                                     frame_id=msgScan.header.frame_id)
+        fields = [PointField('x', 0, PointField.FLOAT32, 1),
+                  PointField('y', 4, PointField.FLOAT32, 1),
+                  PointField('z', 8, PointField.FLOAT32, 1)]
+
+        # convert from polar coordinates to cartesian and fill the point cloud
+        points = []
+        dist_angle = []
+        for idx, range in enumerate(msgScan.ranges):
+            theta = msgScan.angle_min + msgScan.angle_increment * idx
+            x = range * math.cos(theta)
+            y = range * math.sin(theta)
+            points.append([x, y, 0])
+
+        pc2 = point_cloud2.create_cloud(header, fields, points)  # create point_cloud2 data structure
+        self.publisher_laser_distance.publish(
+            pc2)  # publish (will automatically convert from point_cloud2 to Pointcloud2 message)
+
+        # Shortest obstacle
+        rospy.loginfo('Find shortest obstacle')
+
+        if msgScan.ranges != []:  # If detects something
+            min_range_detected_idx = msgScan.ranges.index(min(msgScan.ranges))  # find shortest distance index
+            self.closest_object_angle = msgScan.angle_min + min_range_detected_idx * msgScan.angle_increment  # angle to closest object
+
+        else:
+            self.closest_object_angle = None
+
+        rospy.loginfo('closest object angle: ' + str(self.closest_object_angle))
+
+    # def laser_scan_callback(self, laser_scan_msg):
+    #     # print(laser_scan_msg.ranges[0])
+    #     # object_detected = False
+    #     # for i in range(len(laser_scan_msg.ranges)):
+    #     #     if not object_detected:
+    #     #         if laser_scan_msg.ranges[i] > laser_scan_msg.range_min and laser_scan_msg.ranges[i] < laser_scan_msg.range_max:
+    #     #             object_detected = True
+    #     # if object_detected:
+    #     #     print('Object detected')
+    #     # else:
+    #     #     print('No object detected') # if no object is detected, the robot has to move around
+    #
+    #     header = std_msgs.msg.Header(seq = laser_scan_msg.header.seq, stamp = laser_scan_msg.header.stamp, frame_id = laser_scan_msg.header.frame_id)
+    #     fields = [PointField('x', 0, PointField.FLOAT32, 1),
+    #               PointField('y', 4, PointField.FLOAT32, 1),
+    #               PointField('z', 8, PointField.FLOAT32, 1)]
+    #
+    #     # convert from polar coordinates to cartesian and fill the point cloud
+    #     points = []
+    #     z = 0
+    #     for idx, range in enumerate(laser_scan_msg.ranges):
+    #         theta = laser_scan_msg.angle_min + laser_scan_msg.angle_increment * idx
+    #         x = range * math.cos(theta)
+    #         y = range * math.sin(theta)
+    #         points.append([x, y, z])
+    #
+    #     pc2 = point_cloud2.create_cloud(header, fields, points)  # create point_cloud2 data structure
+    #     self.publisher_point_cloud2.publish(pc2)  # publish (will automatically convert from point_cloud2 to Pointcloud2 message)
+    #     rospy.loginfo('X: ' + str(x) + 'Y: ' + str(y) + 'theta: ' + str(theta))
+    #
+    #     # detecting objects
+    #     x_prev, y_prev = 1000, 1000
+    #     dist_threshold = 0.5
+    #     z = 0
+    #
+    #     for idx, range in enumerate(laser_scan_msg.ranges):
+    #
+    #         if range < 0.1:
+    #             continue
+    #
+    #         theta = laser_scan_msg.angle_min + laser_scan_msg.angle_increment * idx
+    #         x = range * math.cos(theta)
+    #         y = range * math.sin(theta)
+    #
+    #         # Should I create a new cluster?
+    #         dist = math.sqrt((x_prev - x) ** 2 + (y_prev - y) ** 2)
+    #         if dist > dist_threshold and dist < dist_threshold:
+    #             # wall
+    #         elseif:
+    #
+    #
+    #         last_marker = marker_array.markers[-1]
+    #         last_marker.points.append(Point(x=x, y=y, z=z))
+    #
+    #         x_prev = x
+    #         y_prev = y
 
 
 def main():
@@ -193,7 +447,6 @@ def main():
 
     driver = Driver()
     rate = rospy.Rate(10)
-
 
     # ------------------------------------------------------
     # Execution
