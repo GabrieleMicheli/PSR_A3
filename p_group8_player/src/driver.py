@@ -1,22 +1,18 @@
 #!/usr/bin/python3
 
 import copy
-import math
-import cv2
 import rospy
 import std_msgs
+from std_msgs.msg import String
 import tf2_ros
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist, PoseStamped
-from sensor_msgs import point_cloud2
-from sensor_msgs.msg import Image, PointCloud2, PointField
 from driver_functions import *
 import numpy as np
-import logging
+import math
 from math import *
-from std_msgs.msg import String
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import LaserScan, PointCloud2, PointField
+from sensor_msgs.msg import PointCloud2, PointField, Image
 from sensor_msgs import point_cloud2
 
 class Driver():
