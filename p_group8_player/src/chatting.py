@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from tkinter import * # Import tkinter library
+from tkinter import *  # Import tkinter library
+
 
 def moveWindowCenter(window):
     winWidth = window.winfo_reqwidth()
@@ -8,6 +9,7 @@ def moveWindowCenter(window):
     posRight = int(window.winfo_screenwidth() / 2 - winWidth / 2)
     posDown = int(window.winfo_screenheight() / 2 - winwHeight / 2)
     window.geometry("+{}+{}".format(posRight, posDown))
+
 
 def main():
     # declare the window
@@ -20,11 +22,10 @@ def main():
     window.configure(bg='white')
 
     # if red is hunted from blue -> ex. text = 'R1: Oh no, run!' and text = 'B1: I am coming bro!'
-    lbl=Label(window, text = 'R1: Oh no, run!', bg='White', fg='Red') # not use label but something different
+    lbl = Label(window, text='R1: Oh no, run!', bg='White', fg='Red')  # not use label but something different
     # if blue catches red -> ex. text = 'B1: Game over bro!' and text = 'R1: :('
 
     lbl.place(x=20, y=10)
-
 
     moveWindowCenter(window)
 

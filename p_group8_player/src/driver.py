@@ -61,6 +61,8 @@ class Driver():
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
         self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
         # self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
+        self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback)
+
 
         # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
         #
@@ -74,20 +76,6 @@ class Driver():
 
         self.connectivity = 4
 
-        # Laser Scan Parameters
-        self.MAX_LIDAR_DISTANCE = 1.0
-        self.COLLISION_DISTANCE = 0.14  # LaserScan.range_min = 0.1199999
-        self.NEARBY_DISTANCE = 0.45
-
-        self.ZONE_0_LENGTH = 0.4
-        self.ZONE_1_LENGTH = 0.7
-
-        self.ANGLE_MAX = 360 - 1
-        self.ANGLE_MIN = 1 - 1
-        self.HORIZON_WIDTH = 75
-
-    # Function to check the players team - harcoded
-    # Not hardcoded anymore what do you think?
     def getTeam(self, red_players_list, green_players_list, blue_players_list):
         if self.name in red_players_list:
             self.team = 'Red'
@@ -306,6 +294,7 @@ class Driver():
             x = int(x)
             y = int(y)
             centroid = (x, y)
+            self.perWidht = stats[largest_object_idx, cv2.CC_STAT_WIDTH]
 
             # Mask the largest object and paint with green
             largest_object = (labels == largest_object_idx)
@@ -333,6 +322,7 @@ class Driver():
             # Calculates the euclidean distance between the two centroids
             self.distance_hunter_to_prey = sqrt((self.centroid_hunter[0] - self.centroid_prey[0]) ** 2
                                                 + (self.centroid_hunter[1] - self.centroid_prey[1]) ** 2)
+
             # rospy.loginfo(self.distance_hunter_to_prey)
 
             # Threshold training with gazebo
@@ -381,62 +371,33 @@ class Driver():
 
         rospy.loginfo('closest object angle: ' + str(self.closest_object_angle))
 
-    # def laser_scan_callback(self, laser_scan_msg):
-    #     # print(laser_scan_msg.ranges[0])
-    #     # object_detected = False
-    #     # for i in range(len(laser_scan_msg.ranges)):
-    #     #     if not object_detected:
-    #     #         if laser_scan_msg.ranges[i] > laser_scan_msg.range_min and laser_scan_msg.ranges[i] < laser_scan_msg.range_max:
-    #     #             object_detected = True
-    #     # if object_detected:
-    #     #     print('Object detected')
-    #     # else:
-    #     #     print('No object detected') # if no object is detected, the robot has to move around
+    # def takeAction(self):
     #
-    #     header = std_msgs.msg.Header(seq = laser_scan_msg.header.seq, stamp = laser_scan_msg.header.stamp, frame_id = laser_scan_msg.header.frame_id)
-    #     fields = [PointField('x', 0, PointField.FLOAT32, 1),
-    #               PointField('y', 4, PointField.FLOAT32, 1),
-    #               PointField('z', 8, PointField.FLOAT32, 1)]
+    #     linear_vel = 0.5
     #
-    #     # convert from polar coordinates to cartesian and fill the point cloud
-    #     points = []
-    #     z = 0
-    #     for idx, range in enumerate(laser_scan_msg.ranges):
-    #         theta = laser_scan_msg.angle_min + laser_scan_msg.angle_increment * idx
-    #         x = range * math.cos(theta)
-    #         y = range * math.sin(theta)
-    #         points.append([x, y, z])
-    #
-    #     pc2 = point_cloud2.create_cloud(header, fields, points)  # create point_cloud2 data structure
-    #     self.publisher_point_cloud2.publish(pc2)  # publish (will automatically convert from point_cloud2 to Pointcloud2 message)
-    #     rospy.loginfo('X: ' + str(x) + 'Y: ' + str(y) + 'theta: ' + str(theta))
-    #
-    #     # detecting objects
-    #     x_prev, y_prev = 1000, 1000
-    #     dist_threshold = 0.5
-    #     z = 0
-    #
-    #     for idx, range in enumerate(laser_scan_msg.ranges):
-    #
-    #         if range < 0.1:
-    #             continue
-    #
-    #         theta = laser_scan_msg.angle_min + laser_scan_msg.angle_increment * idx
-    #         x = range * math.cos(theta)
-    #         y = range * math.sin(theta)
-    #
-    #         # Should I create a new cluster?
-    #         dist = math.sqrt((x_prev - x) ** 2 + (y_prev - y) ** 2)
-    #         if dist > dist_threshold and dist < dist_threshold:
-    #             # wall
-    #         elseif:
+    #     # catch prey
+    #     if self.centroid_prey == (0, 0):
+    #         angular_vel_prey = 0.8
+    #     else:
+    #         angular_vel_prey = 0.001 * (self.shape[1] / 2 - self.point_p[0])
+
+    def distance_to_camera(self, knownWidth = 306, focalLength = 525): # W = 306 mm, focal_length = 525 (see wafflepi specifications)
+        # compute and return the distance from the maker to the camera
+        return (knownWidth * focalLength)/ self.perWidth # distance in mm from an object in the camera respect to the camera
+
+    # def getTeammatesPosition(self):
+    #     self.
     #
     #
-    #         last_marker = marker_array.markers[-1]
-    #         last_marker.points.append(Point(x=x, y=y, z=z))
     #
-    #         x_prev = x
-    #         y_prev = y
+    #     teammates_position = ()
+    #     return
+
+    def odomPositionCallback(self, odomMsg):
+        x = odomMsg.pose.pose.position.x
+        y = odomMsg.pose.pose.position.y
+        self.position = (x, y)
+        rospy.loginfo(self.name + ': ' + str(self.position))
 
 
 def main():

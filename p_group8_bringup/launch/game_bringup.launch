@@ -2,16 +2,15 @@
 <launch>
     <arg name="debug" default="false"/>
     <rosparam command="load" file="$(find p_group8_bringup)/params/game.yaml"/>
-
     <!-- CREATE TEAM RED -->
 
     <!-- Creating R1 (red1) robot -->
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="R1"/>
         <arg name="player_color" value="Red"/>
-        <arg name="x_pos" default="3"/>
-        <arg name="y_pos" default="5"/>
-        <arg name="z_pos" default="0"/>
+        <arg name="x_pos" default="3.0"/>
+        <arg name="y_pos" default="5.0"/>
+        <arg name="z_pos" default="0.0"/>
         <arg name="debug" default="true"/>
     </include>
 
@@ -19,9 +18,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="R2"/>
         <arg name="player_color" value="Red"/>
-        <arg name="x_pos" default="4"/>
-        <arg name="y_pos" default="5"/>
-        <arg name="z_pos" default="0"/>
+        <arg name="x_pos" default="4.0"/>
+        <arg name="y_pos" default="5.0"/>
+        <arg name="z_pos" default="0.0"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
@@ -29,9 +28,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="R3"/>
         <arg name="player_color" value="Red"/>
-        <arg name="x_pos" default="5"/>
-        <arg name="y_pos" default="5"/>
-        <arg name="z_pos" default="0"/>
+        <arg name="x_pos" default="5.0"/>
+        <arg name="y_pos" default="5.0"/>
+        <arg name="z_pos" default="0.0"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
@@ -41,9 +40,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G1"/>
         <arg name="player_color" value="Green"/>
-        <arg name="x_pos" default="-3"/>
-        <arg name="y_pos" default="5"/>
-        <arg name="z_pos" default="0"/>
+        <arg name="x_pos" default="-3.0"/>
+        <arg name="y_pos" default="5.0"/>
+        <arg name="z_pos" default="0.0"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
@@ -51,9 +50,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G2"/>
         <arg name="player_color" value="Green"/>
-        <arg name="x_pos" default="-4"/>
-        <arg name="y_pos" default="5"/>
-        <arg name="z_pos" default="0"/>
+        <arg name="x_pos" default="-4.0"/>
+        <arg name="y_pos" default="5.0"/>
+        <arg name="z_pos" default="0.0"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
@@ -61,9 +60,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G3"/>
         <arg name="player_color" value="Green"/>
-        <arg name="x_pos" default="-5"/>
-        <arg name="y_pos" default="5"/>
-        <arg name="z_pos" default="0"/>
+        <arg name="x_pos" default="-5.0"/>
+        <arg name="y_pos" default="5.0"/>
+        <arg name="z_pos" default="0.0"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
@@ -73,9 +72,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B1"/>
         <arg name="player_color" value="Blue"/>
-        <arg name="x_pos" default="-3"/>
-        <arg name="y_pos" default="-2"/>
-        <arg name="z_pos" default="0"/>
+        <arg name="x_pos" default="-3.0"/>
+        <arg name="y_pos" default="-2.0"/>
+        <arg name="z_pos" default="0.0"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
@@ -83,9 +82,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B2"/>
         <arg name="player_color" value="Blue"/>
-        <arg name="x_pos" default="-4"/>
-        <arg name="y_pos" default="-2"/>
-        <arg name="z_pos" default="0"/>
+        <arg name="x_pos" default="-4.0"/>
+        <arg name="y_pos" default="-2.0"/>
+        <arg name="z_pos" default="0.0"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
@@ -93,9 +92,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B3"/>
         <arg name="player_color" value="Blue"/>
-        <arg name="x_pos" default="-5"/>
-        <arg name="y_pos" default="-2"/>
-        <arg name="z_pos" default="0"/>
+        <arg name="x_pos" default="-5.0"/>
+        <arg name="y_pos" default="-2.0"/>
+        <arg name="z_pos" default="0.0"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
