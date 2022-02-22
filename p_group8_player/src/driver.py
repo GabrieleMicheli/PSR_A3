@@ -61,6 +61,8 @@ class Driver():
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
         self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
         # self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
+        self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback)
+
 
         # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
         #
@@ -292,6 +294,7 @@ class Driver():
             x = int(x)
             y = int(y)
             centroid = (x, y)
+            self.perWidht = stats[largest_object_idx, cv2.CC_STAT_WIDTH]
 
             # Mask the largest object and paint with green
             largest_object = (labels == largest_object_idx)
@@ -377,6 +380,24 @@ class Driver():
     #         angular_vel_prey = 0.8
     #     else:
     #         angular_vel_prey = 0.001 * (self.shape[1] / 2 - self.point_p[0])
+
+    def distance_to_camera(self, knownWidth = 306, focalLength = 525): # W = 306 mm, focal_length = 525 (see wafflepi specifications)
+        # compute and return the distance from the maker to the camera
+        return (knownWidth * focalLength)/ self.perWidth # distance in mm from an object in the camera respect to the camera
+
+    # def getTeammatesPosition(self):
+    #     self.
+    #
+    #
+    #
+    #     teammates_position = ()
+    #     return
+
+    def odomPositionCallback(self, odomMsg):
+        x = odomMsg.pose.pose.position.x
+        y = odomMsg.pose.pose.position.y
+        self.position = (x, y)
+        rospy.loginfo(self.name + ': ' + str(self.position))
 
 
 def main():
