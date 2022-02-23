@@ -26,6 +26,13 @@ class Driver():
         self.state = 'wait'
         self.distance_hunter_to_prey = 0
         self.closest_object_angle = None
+        self.linear_vel_to_wait = 0
+        self.linear_vel_to_attack = 0
+        self.angular_vel_to_wait = 0
+        self.angular_vel_to_attack = 0
+        self.height = 0
+        self.width = 0
+        self.wall = 0
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -37,7 +44,7 @@ class Driver():
         self.name = rospy.get_name()
         self.name = self.name.strip('/')  # removing slash
         self.name = self.name.strip('/driver')  # removing slash
-        rospy.loginfo('My player name is ' + self.name)
+        # rospy.loginfo('My player name is ' + self.name)
         self.getTeam(red_players_list, green_players_list, blue_players_list)
         self.information(red_players_list, green_players_list, blue_players_list)
 
@@ -146,11 +153,21 @@ class Driver():
             speed = 1
 
         # Build the command message (Twist) and publish it
+        self.decisionMaking()
+        self.takeAction()
+        rospy.loginfo('Im here')
         twist = Twist()
-        twist.linear.x = speed
-        twist.angular.z = angle
+        if self.state == 'wait':
+            twist.linear.x = self.linear_vel_to_wait
+            twist.angular.z = self.angular_vel_to_wait
+        elif self.state == 'attack':
+            twist.linear.x = self.linear_vel_to_attack
+            twist.angular.z = self.angular_vel_to_attack
 
-        # self.publisher_command.publish(twist)
+        # twist.linear.x = speed
+        # twist.angular.z = angle
+
+        self.publisher_command.publish(twist)
 
     def computeDistanceToGoal(self, goal):
         goal_present_time = copy.deepcopy(goal)
@@ -202,7 +219,8 @@ class Driver():
         # Convert subscribed image msg to cv2 image
         bridge = CvBridge()
         self.cv_image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-
+        self.height = self.cv_image.shape[0]
+        self.width = self.cv_image.shape[1]
         # Calling getCentroid function and extracting hunter centroid coordinates and his mask
         centroid_hunter, frame_hunter = self.getCentroid(self.cv_image, self.hunter)
         self.decisionMaking()
@@ -303,17 +321,20 @@ class Driver():
         return centroid, player_identified
 
     def decisionMaking(self):
+        # TODO:DecisionMaking -> Wall Avoidence
+        # If self.wall = true:
+        # self.state = wall_avoidance
 
         # If it detects a hunter and no prey, the player will flee away
-        if self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0):
+        if self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0) and self.wall == 0:
             self.state = 'flee'
 
         # If it detects a prey and no hunter, the player will attack
-        if self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0):
+        if self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0) and self.wall == 0:
             self.state = 'attack'
 
         # If it detects a prey and a hunter, the player will make a decision based on the distance between both
-        if self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0):
+        if self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0) and self.wall == 0:
 
             # Calculates the euclidean distance between the two centroids
             self.distance_hunter_to_prey = sqrt((self.centroid_hunter[0] - self.centroid_prey[0]) ** 2
@@ -328,7 +349,7 @@ class Driver():
                 self.state = 'flee'
 
         # If it detects no prey and no hunter, the player will wait and walk around
-        if self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0):
+        if self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0) and self.wall == 0:
             self.state = 'wait'
 
     def lidarScanCallback(self, msgScan):
@@ -367,29 +388,36 @@ class Driver():
 
         rospy.loginfo('closest object angle: ' + str(self.closest_object_angle))
 
-    # def takeAction(self):
-    #
-    #     linear_vel = 0.5
-    #
-    #     # catch prey
-    #     if self.centroid_prey == (0, 0):
-    #         angular_vel_prey = 0.8
-    #     else:
-    #         angular_vel_prey = 0.001 * (self.shape[1] / 2 - self.point_p[0])
+    def takeAction(self):
+
+        rospy.loginfo('TakeAction Function')
+        # Nothing Detected nearby
+        if self.state == 'wait':
+            self.linear_vel_to_wait = 0.5
+            self.angular_vel_to_wait = 0.8
+
+        # Prey Detected -> Attack
+        elif self.state == 'attack':
+            self.linear_vel_to_attack = 1
+            self.angular_vel_to_attack = 0.001 * (self.width / 2 - self.centroid_prey[0])
+            if np.sign(self.odom.twist.twist.linear.x) != np.sign(self.angular_vel_to_attack):
+                self.angular_vel_to_attack = 2 * self.angular_vel_to_attack
+
+        # # Hunter Detected -> Flee
+        # elif self.state == 'flee':
+        #     pass
+        #
+        # # Only Wall Detected -> Wall Avoidance
+        # elif self.state == 'wall_avoidance':
+        #     pass
+
 
     def distance_to_camera(self, knownWidth = 306, focalLength = 525): # W = 306 mm, focal_length = 525 (see wafflepi specifications)
         # compute and return the distance from the maker to the camera
         return (knownWidth * focalLength)/ self.perWidth # distance in mm from an object in the camera respect to the camera
 
-    # def getTeammatesPosition(self):
-    #     self.
-    #
-    #
-    #
-    #     teammates_position = ()
-    #     return
-
     def odomPositionCallback(self, odomMsg):
+        self.odom = odomMsg
         x = odomMsg.pose.pose.position.x
         y = odomMsg.pose.pose.position.y
         self.position = (x, y)
