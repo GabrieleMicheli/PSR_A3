@@ -2,36 +2,77 @@
 <launch>
     <arg name="debug" default="false"/>
     <rosparam command="load" file="$(find p_group8_bringup)/params/game.yaml"/>
+
+    <!--    Position parameters-->
+    <arg name="R1_x_pos" default="3.0"/>
+    <arg name="R1_y_pos" default="5.0"/>
+
+    <arg name="R2_x_pos" default="4.0"/>
+    <arg name="R2_y_pos" default="5.0"/>
+
+    <arg name="R3_x_pos" default="5.0"/>
+    <arg name="R3_y_pos" default="5.0"/>
+
+    <arg name="G1_x_pos" default="-5.0"/>
+    <arg name="G1_y_pos" default="5.0"/>
+
+    <arg name="G2_x_pos" default="-6.0"/>
+    <arg name="G2_y_pos" default="5.0"/>
+
+    <arg name="G3_x_pos" default="-7.0"/>
+    <arg name="G3_y_pos" default="5.0"/>
+
+    <arg name="B1_x_pos" default="-5.0"/>
+    <arg name="B1_y_pos" default="-2.0"/>
+
+    <arg name="B2_x_pos" default="-6.0"/>
+    <arg name="B2_y_pos" default="-2.0"/>
+
+    <arg name="B3_x_pos" default="-7.0"/>
+    <arg name="B3_y_pos" default="-2.0"/>
+
+
     <!-- CREATE TEAM RED -->
 
     <!-- Creating R1 (red1) robot -->
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="R1"/>
         <arg name="player_color" value="Red"/>
-        <arg name="x_pos" default="3.0"/>
-        <arg name="y_pos" default="5.0"/>
-        <arg name="z_pos" default="0.0"/>
-        <arg name="debug" default="true"/>
+        <arg name="x_pos" value="$(arg R1_x_pos)"/>
+        <arg name="y_pos" value="$(arg R1_y_pos)"/>
+        <arg name="debug" value="true"/>
     </include>
 
     <!-- Creating R2 (red2) robot -->
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="R2"/>
         <arg name="player_color" value="Red"/>
-        <arg name="x_pos" default="4.0"/>
-        <arg name="y_pos" default="5.0"/>
-        <arg name="z_pos" default="0.0"/>
-        <arg name="debug" default="$(arg debug)"/>
+        <arg name="x_pos" value="$(arg R2_x_pos)"/>
+        <arg name="y_pos" value="$(arg R2_y_pos)"/>
+        <arg name="debug" value="$(arg debug)"/>
     </include>
 
     <!-- Creating R3 (red3) robot -->
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="R3"/>
         <arg name="player_color" value="Red"/>
-        <arg name="x_pos" default="5.0"/>
-        <arg name="y_pos" default="5.0"/>
-        <arg name="z_pos" default="0.0"/>
-        <arg name="debug" default="$(arg debug)"/>
+        <arg name="x_pos" value="$(arg R3_x_pos)"/>
+        <arg name="y_pos" value="$(arg R3_y_pos)"/>
+        <arg name="debug" value="$(arg debug)"/>
+    </include>
+
+    <include file="$(find p_group8_bringup)/launch/multi_map_merge.launch">
+        <arg name="team" value="red"/>
+        <arg name="team_ns" value="R"/>
+        <arg name="first"  value="R1"/>
+        <arg name="second" value="R2"/>
+        <arg name="third"  value="R3"/>
+        <arg name="first_x_pos" value="$(arg R1_x_pos)"/>
+        <arg name="first_y_pos" value="$(arg R1_y_pos)"/>
+        <arg name="second_x_pos" value="$(arg R2_x_pos)"/>
+        <arg name="second_y_pos" value="$(arg R2_y_pos)"/>
+        <arg name="third_x_pos" value="$(arg R3_x_pos)"/>
+        <arg name="third_y_pos" value="$(arg R3_y_pos)"/>
     </include>
 
     <!-- CREATE TEAM GREEN -->
@@ -40,9 +81,8 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G1"/>
         <arg name="player_color" value="Green"/>
-        <arg name="x_pos" default="-3.0"/>
-        <arg name="y_pos" default="5.0"/>
-        <arg name="z_pos" default="0.0"/>
+        <arg name="x_pos" default="$(arg G1_x_pos)"/>
+        <arg name="y_pos" default="$(arg G1_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
@@ -50,9 +90,8 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G2"/>
         <arg name="player_color" value="Green"/>
-        <arg name="x_pos" default="-4.0"/>
-        <arg name="y_pos" default="5.0"/>
-        <arg name="z_pos" default="0.0"/>
+        <arg name="x_pos" default="$(arg G2_x_pos)"/>
+        <arg name="y_pos" default="$(arg G2_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
@@ -60,10 +99,23 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G3"/>
         <arg name="player_color" value="Green"/>
-        <arg name="x_pos" default="-5.0"/>
-        <arg name="y_pos" default="5.0"/>
-        <arg name="z_pos" default="0.0"/>
+        <arg name="x_pos" default="$(arg G3_x_pos)"/>
+        <arg name="y_pos" default="$(arg G3_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
+    </include>
+
+    <include file="$(find p_group8_bringup)/launch/multi_map_merge.launch">
+        <arg name="team" value="green"/>
+        <arg name="team_ns" value="G"/>
+        <arg name="first"  value="G1"/>
+        <arg name="second" value="G2"/>
+        <arg name="third"  value="G3"/>
+        <arg name="first_x_pos" value="$(arg G1_x_pos)"/>
+        <arg name="first_y_pos" value="$(arg G1_y_pos)"/>
+        <arg name="second_x_pos" value="$(arg G2_x_pos)"/>
+        <arg name="second_y_pos" value="$(arg G2_y_pos)"/>
+        <arg name="third_x_pos" value="$(arg G3_x_pos)"/>
+        <arg name="third_y_pos" value="$(arg G3_y_pos)"/>
     </include>
 
     <!-- CREATE TEAM BLUE -->
@@ -72,9 +124,8 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B1"/>
         <arg name="player_color" value="Blue"/>
-        <arg name="x_pos" default="-3.0"/>
-        <arg name="y_pos" default="-2.0"/>
-        <arg name="z_pos" default="0.0"/>
+        <arg name="x_pos" default="$(arg B1_x_pos)"/>
+        <arg name="y_pos" default="$(arg B1_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
@@ -82,9 +133,8 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B2"/>
         <arg name="player_color" value="Blue"/>
-        <arg name="x_pos" default="-4.0"/>
-        <arg name="y_pos" default="-2.0"/>
-        <arg name="z_pos" default="0.0"/>
+        <arg name="x_pos" default="$(arg B2_x_pos)"/>
+        <arg name="y_pos" default="$(arg B2_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
     </include>
 
@@ -92,10 +142,23 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B3"/>
         <arg name="player_color" value="Blue"/>
-        <arg name="x_pos" default="-5.0"/>
-        <arg name="y_pos" default="-2.0"/>
-        <arg name="z_pos" default="0.0"/>
+        <arg name="x_pos" default="$(arg B3_x_pos)"/>
+        <arg name="y_pos" default="$(arg B3_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
+    </include>
+
+    <include file="$(find p_group8_bringup)/launch/multi_map_merge.launch">
+        <arg name="team" value="blue"/>
+        <arg name="team_ns" value="B"/>
+        <arg name="first"  value="B1"/>
+        <arg name="second" value="B2"/>
+        <arg name="third"  value="B3"/>
+        <arg name="first_x_pos" value="$(arg B1_x_pos)"/>
+        <arg name="first_y_pos" value="$(arg B1_y_pos)"/>
+        <arg name="second_x_pos" value="$(arg B2_x_pos)"/>
+        <arg name="second_y_pos" value="$(arg B2_y_pos)"/>
+        <arg name="third_x_pos" value="$(arg B3_x_pos)"/>
+        <arg name="third_y_pos" value="$(arg B3_y_pos)"/>
     </include>
 
     <!-- Launch the 'set_player_names' ROS node -->

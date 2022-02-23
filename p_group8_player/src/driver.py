@@ -54,16 +54,16 @@ class Driver():
 
         # Defining publishers and subscriber
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
-        self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
-        self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
+        self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback, queue_size=1)
+        self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback, queue_size=1)
         # self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
-        self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback)
+        self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback, queue_size=1)
 
 
         # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
         #
         # self.laser_scan_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.laser_scan_callback)
-        self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
+        self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2, queue_size=1)
 
         # Defining threshold limits for image processing masks
         self.blue_limits = {'B': {'max': 255, 'min': 100}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 50, 'min': 0}}
@@ -215,7 +215,7 @@ class Driver():
         self.centroid_prey = (x_prey, y_prey)
 
         if self.debug:
-            rospy.loginfo(self.distance_hunter_to_prey)
+            # rospy.loginfo(self.distance_hunter_to_prey)
             if (x_hunter, y_hunter) != (0, 0):
                 cv2.putText(frame_hunter, 'Hunter!', org=(x_hunter, y_hunter),
                             fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=2, color=(0, 0, 255), thickness=5)
@@ -393,7 +393,7 @@ class Driver():
         x = odomMsg.pose.pose.position.x
         y = odomMsg.pose.pose.position.y
         self.position = (x, y)
-        rospy.loginfo(self.name + ': ' + str(self.position))
+        # rospy.loginfo(self.name + ': ' + str(self.position))
 
 
 def main():
