@@ -12,27 +12,41 @@ import numpy as np
 import math
 from math import *
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import PointCloud2, PointField, Image
+from sensor_msgs.msg import PointCloud2, PointField, Image, LaserScan
 from sensor_msgs import point_cloud2
+
 
 class Driver():
     def __init__(self):
-        # Defining parameters
+
+        # <---------------------------------------------------------------------------------------------------------->
+        # <--------------------------------Variable Initialization--------------------------------------------------->
+        # <---------------------------------------------------------------------------------------------------------->
         self.team = 'Not defined'
         self.prey = 'Not defined'
         self.hunter = 'Not defined'
+        self.team_players = 'Not defined'
+        self.hunter_team_players = 'Not defined'
+        self.prey_team_players = 'Not defined'
+        self.cv_image = []
+        self.mask = []
         self.centroid_hunter = (0, 0)
         self.centroid_prey = (0, 0)
         self.state = 'wait'
         self.distance_hunter_to_prey = 0
-        self.closest_object_angle = None
+        self.wall_avoiding_angle = 0
         self.linear_vel_to_wait = 0
         self.linear_vel_to_attack = 0
         self.angular_vel_to_wait = 0
         self.angular_vel_to_attack = 0
+        self.linear_vel_to_flee = 0
+        self.angular_vel_to_flee = 0
+        self.linear_vel_to_avoid_wall = 0
+        self.angular_vel_to_avoid_wall = 0
         self.height = 0
         self.width = 0
-        self.wall = 0
+        self.odom = None
+        self.position = (0, 0)
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -44,7 +58,7 @@ class Driver():
         self.name = rospy.get_name()
         self.name = self.name.strip('/')  # removing slash
         self.name = self.name.strip('/driver')  # removing slash
-        # rospy.loginfo('My player name is ' + self.name)
+
         self.getTeam(red_players_list, green_players_list, blue_players_list)
         self.information(red_players_list, green_players_list, blue_players_list)
 
@@ -59,26 +73,29 @@ class Driver():
         self.tf_buffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tf_buffer)
 
-        # Defining publishers and subscriber
-        self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
-        self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback, queue_size=1)
-        self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback, queue_size=1)
-        # self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
-        self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback, queue_size=1)
-
-
-        # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
-        #
-        # self.laser_scan_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.laser_scan_callback)
-        self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2, queue_size=1)
-
         # Defining threshold limits for image processing masks
         self.blue_limits = {'B': {'max': 255, 'min': 100}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 50, 'min': 0}}
         self.red_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 255, 'min': 100}}
         self.green_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 255, 'min': 100}, 'R': {'max': 50, 'min': 0}}
 
+        # Other parameters
         self.connectivity = 4
 
+        # <---------------------------------------------------------------------------------------------------------->
+        # <-----------------------------Publishers and Subscribers--------------------------------------------------->
+        # <---------------------------------------------------------------------------------------------------------->
+        self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
+        self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
+        self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
+        self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback)
+        self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
+        self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist)
+        # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
+        # self.laser_scan_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.laser_scan_callback)
+
+    # <---------------------------------------------------------------------------------------------------------->
+    # <-----------------------------------Teams Setup------------------------------------------------------------>
+    # <---------------------------------------------------------------------------------------------------------->
     def getTeam(self, red_players_list, green_players_list, blue_players_list):
         if self.name in red_players_list:
             self.team = 'Red'
@@ -104,9 +121,9 @@ class Driver():
         else:
             self.team = 'Joker'
 
-    # ------------------------------------------------------
-    #             Terminal Printing Information
-    # ------------------------------------------------------
+    # <---------------------------------------------------------------------------------------------------------->
+    # <--------------------------------Terminal Printing information--------------------------------------------->
+    # <---------------------------------------------------------------------------------------------------------->
 
     def information(self, red_players_list, green_players_list, blue_players_list):
         if self.team == 'Red':
@@ -121,14 +138,20 @@ class Driver():
         else:
             rospy.loginfo('You are a joker and you can just annoy the others!')
 
-    # ------------------------------------------------------
-    #               CallBack Functions
-    # ------------------------------------------------------
+    # <---------------------------------------------------------------------------------------------------------->
+    # <------------------------------------Callback functions---------------------------------------------------->
+    # <---------------------------------------------------------------------------------------------------------->
 
     def goalReceivedCallback(self, goal_msg):
         rospy.loginfo('Received new goal')
         self.goal = goal_msg  # storing goal inside the class
         self.goal_active = True
+
+    def odomPositionCallback(self, odomMsg):
+        self.odom = odomMsg
+        x = odomMsg.pose.pose.position.x
+        y = odomMsg.pose.pose.position.y
+        self.position = (x, y)
 
     def sendCommandCallback(self):
         # Decision outputs a speed (linear Velocity) and an angle (angular Velocity)
@@ -152,20 +175,25 @@ class Driver():
             angle = 1
             speed = 1
 
-        # Build the command message (Twist) and publish it
         self.decisionMaking()
         self.takeAction()
-        rospy.loginfo('Im here')
         twist = Twist()
+
         if self.state == 'wait':
             twist.linear.x = self.linear_vel_to_wait
             twist.angular.z = self.angular_vel_to_wait
         elif self.state == 'attack':
             twist.linear.x = self.linear_vel_to_attack
             twist.angular.z = self.angular_vel_to_attack
-
-        # twist.linear.x = speed
-        # twist.angular.z = angle
+        elif self.state == 'flee':
+            twist.linear.x = self.linear_vel_to_flee
+            twist.angular.z = self.angular_vel_to_flee
+        elif self.state == 'avoid_wall':
+            twist.linear.x = self.linear_vel_to_avoid_wall
+            twist.angular.z = self.angular_vel_to_avoid_wall
+        elif self.goal_active:
+            twist.linear.x = speed
+            twist.angular.z = angle
 
         self.publisher_command.publish(twist)
 
@@ -188,7 +216,6 @@ class Driver():
         return distance
 
     def driveStraight(self, goal, min_speed=0.1, max_speed=0.5):
-
         goal_present_time = copy.deepcopy(goal)
         goal_present_time.header.stamp = rospy.Time.now()
 
@@ -214,6 +241,9 @@ class Driver():
 
         return angle, speed
 
+    # ------------------------------------------------------
+    #               cameraCallback function
+    # ------------------------------------------------------
     def cameraCallback(self, msg):
 
         # Convert subscribed image msg to cv2 image
@@ -248,6 +278,9 @@ class Driver():
             cv2.imshow(self.name, hunters_n_preys)
             cv2.waitKey(1)
 
+    # ------------------------------------------------------
+    #               getCentroid function
+    # ------------------------------------------------------
     def getCentroid(self, image, team):
         """
             Create a mask with the largest blob of mask_original and return its centroid coordinates
@@ -320,41 +353,51 @@ class Driver():
 
         return centroid, player_identified
 
+    # ------------------------------------------------------
+    #               decisionMaking function
+    # ------------------------------------------------------
     def decisionMaking(self):
-        # TODO:DecisionMaking -> Wall Avoidence
-        # If self.wall = true:
-        # self.state = wall_avoidance
+        """
+           Creates the different states of the robot action
+           :param centroid_prey: (x,y) - Tuple
+           :param centroid_hunter: (x,y) - Tuple
+           :param wall_avoiding_angle : angle in radians
+           :param distance_hunter_to_prey : distance in meters
+           :return state : state of robot - String
+        """
+
+        # If it detects a wall_avoiding_angle it's only a "wall" when both prey and hunter centroids are (0,0)
+        if self.centroid_prey == (0, 0) and self.centroid_hunter == (0, 0) and self.wall_avoiding_angle != 0:
+            self.state = 'avoid_wall'
 
         # If it detects a hunter and no prey, the player will flee away
-        if self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0) and self.wall == 0:
+        if self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0):
             self.state = 'flee'
 
         # If it detects a prey and no hunter, the player will attack
-        if self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0) and self.wall == 0:
+        if self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0):
             self.state = 'attack'
 
         # If it detects a prey and a hunter, the player will make a decision based on the distance between both
-        if self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0) and self.wall == 0:
+        if self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0):
 
             # Calculates the euclidean distance between the two centroids
             self.distance_hunter_to_prey = sqrt((self.centroid_hunter[0] - self.centroid_prey[0]) ** 2
                                                 + (self.centroid_hunter[1] - self.centroid_prey[1]) ** 2)
-
-            # rospy.loginfo(self.distance_hunter_to_prey)
-
             # Threshold training with gazebo
             if self.distance_hunter_to_prey > 400:
                 self.state = 'attack'
             else:
                 self.state = 'flee'
 
-        # If it detects no prey and no hunter, the player will wait and walk around
-        if self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0) and self.wall == 0:
+        # If it detects no prey and no hunter and no wall, the player will wait and walk around
+        if self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0) and self.wall_avoiding_angle == 0:
             self.state = 'wait'
 
+    # ------------------------------------------------------
+    #               lidarScanCallback function
+    # ------------------------------------------------------
     def lidarScanCallback(self, msgScan):
-
-        # self.laser_subscriber = msgScan
 
         # Get points to RVIZ
         header = std_msgs.msg.Header(seq=msgScan.header.seq, stamp=msgScan.header.stamp,
@@ -374,23 +417,35 @@ class Driver():
 
         pc2 = point_cloud2.create_cloud(header, fields, points)  # create point_cloud2 data structure
         self.publisher_laser_distance.publish(
-            pc2)  # publish (will automatically convert from point_cloud2 to Pointcloud2 message)
+            pc2)  # publish (will automatically convert from point_cloud2 to Point cloud2 message)
 
         # Shortest obstacle
         rospy.loginfo('Find shortest obstacle')
 
-        if msgScan.ranges != []:  # If detects something
-            min_range_detected_idx = msgScan.ranges.index(min(msgScan.ranges))  # find shortest distance index
-            self.closest_object_angle = msgScan.angle_min + min_range_detected_idx * msgScan.angle_increment  # angle to closest object
+        if msgScan.ranges:  # If detects something
+            min_range_detected_idx = msgScan.ranges.index(min(msgScan.ranges))  # find the shortest distance index
+            min_range_angle = msgScan.angle_min + min_range_detected_idx * msgScan.angle_increment  # min range angle
 
+            if msgScan.ranges[min_range_detected_idx] < 3 and not \
+                    (np.pi / 6 + np.pi / 2 <= min_range_angle <= 3 * np.pi / 2 - np.pi / 6):
+
+                if min_range_angle < np.pi / 2:
+                    self.wall_avoiding_angle = min_range_angle - (np.pi / 6 + np.pi / 2)
+
+                else:
+                    self.wall_avoiding_angle = min_range_angle - (3 * np.pi / 2 - np.pi / 6)
+            else:
+                self.wall_avoiding_angle = 0
         else:
-            self.closest_object_angle = None
+            self.wall_avoiding_angle = 0
 
-        rospy.loginfo('closest object angle: ' + str(self.closest_object_angle))
+        rospy.loginfo('closest object angle: ' + str(self.wall_avoiding_angle))
 
+    # ------------------------------------------------------
+    #               takeAction function
+    # ------------------------------------------------------
     def takeAction(self):
 
-        rospy.loginfo('TakeAction Function')
         # Nothing Detected nearby
         if self.state == 'wait':
             self.linear_vel_to_wait = 0.5
@@ -403,25 +458,22 @@ class Driver():
             if np.sign(self.odom.twist.twist.linear.x) != np.sign(self.angular_vel_to_attack):
                 self.angular_vel_to_attack = 2 * self.angular_vel_to_attack
 
-        # # Hunter Detected -> Flee
-        # elif self.state == 'flee':
-        #     pass
-        #
-        # # Only Wall Detected -> Wall Avoidance
-        # elif self.state == 'wall_avoidance':
-        #     pass
+        # Hunter Detected -> Flee
+        elif self.state == 'flee':
+            self.angular_vel_to_flee = 0.001 * np.sign(self.centroid_hunter[0] - self.width / 2) * \
+                                       min(self.width - self.centroid_hunter[0], self.centroid_hunter[0])
+            self.linear_vel_to_flee = 1
 
+        # Only Wall Detected -> Avoid_wall
+        elif self.state == 'avoid_wall':
+            self.angular_vel_to_avoid_wall = self.wall_avoiding_angle
+            self.linear_vel_to_avoid_wall = 0.2
+            if self.angular_vel_to_avoid_wall < -np.pi / 4 or self.angular_vel_to_avoid_wall > np.pi / 4:
+                self.linear_vel_to_avoid_wall = 0
 
-    def distance_to_camera(self, knownWidth = 306, focalLength = 525): # W = 306 mm, focal_length = 525 (see wafflepi specifications)
-        # compute and return the distance from the maker to the camera
-        return (knownWidth * focalLength)/ self.perWidth # distance in mm from an object in the camera respect to the camera
-
-    def odomPositionCallback(self, odomMsg):
-        self.odom = odomMsg
-        x = odomMsg.pose.pose.position.x
-        y = odomMsg.pose.pose.position.y
-        self.position = (x, y)
-        # rospy.loginfo(self.name + ': ' + str(self.position))
+    # def distance_to_camera(self, knownWidth = 306, focalLength = 525): # W = 306 mm, focal_length = 525 (see wafflepi specifications)
+    #     # compute and return the distance from the maker to the camera
+    #     return (knownWidth * focalLength)/ self.perWidth # distance in mm from an object in the camera respect to the camera
 
 
 def main():
