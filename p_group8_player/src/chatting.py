@@ -5,61 +5,73 @@ import rospy
 from tkinter import *  # Import tkinter library
 from tkinter import ttk
 
-def clear_widget(widget):
-    widget.destroy()
+def create_window(title, width, height, backGroundColour):
+    window = Tk()  # declare the window
+    window.title(title)  # set window title
+    window.configure(width=width, height=height,bg=backGroundColour)  # set window width, height and back ground colour
+
+    return window
+
+def create_frame(window, backGroundColour):
+    frame = Frame(window)
+    frame.pack(fill=BOTH, expand=1)
+    frame.configure(bg=backGroundColour)  # set frame background color
+    return frame
+
+def create_canvas(frame, backGroundColour):
+    canvas = Canvas(frame)
+    canvas.pack(side=LEFT, fill=BOTH, expand=1)
+    canvas.configure(bg=backGroundColour)
+    return canvas
+
+def addScrollbarToCanvas(frame, canvas):
+    scrollbar = ttk.Scrollbar(frame, orient=VERTICAL, command=canvas.yview)
+    scrollbar.pack(side=RIGHT, fill=Y)
+    return scrollbar
+
+def clear_label(label):
+    label.destroy()
 
 def main():
     rospy.init_node('chatting_node') # init chatting node
 
-    window = Tk()  # declare the window
-    window.title('PSR TeamHunt p_group8 chat')  # set window title
-    window.configure(width=500, height=300,bg='white')  # set window width and height
+    # defining window properties
+    window_title = 'PSR TeamHunt p_group8 chat'; width = 500; height = 800; backGroundColour = 'white'
 
-    # create a main frame
-    main_frame = Frame(window)
-    main_frame.pack(fill=BOTH, expand=1)
-    main_frame.configure(bg='white')  # set window background color
+    window = create_window(window_title, width, height, backGroundColour) # creating a chat window
 
-    # create a canvas
-    my_canvas = Canvas(main_frame)
-    my_canvas.pack(side=LEFT, fill=BOTH, expand=1)
-    my_canvas.configure(bg='white')
+    main_frame = create_frame(window, backGroundColour)  # creating a main window
 
-    # add a scrollbar to the canvas
-    my_scrollbar = ttk.Scrollbar(main_frame, orient=VERTICAL, command=my_canvas.yview)
-    my_scrollbar.pack(side=RIGHT, fill=Y)
+    canvas = create_canvas(main_frame, backGroundColour)  # creating a canvas
+
+    scrollbar = addScrollbarToCanvas(main_frame, canvas)  # adding a scrollbar to canvas
 
     # configure the canvas
-    my_canvas.configure(yscrollcommand=my_scrollbar.set)
-    my_canvas.bind('<Configure>', lambda e: my_canvas.configure(scrollregion=my_canvas.bbox("all")))
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
     # create another frame inside the canvas
-    second_frame = Frame(my_canvas)
+    second_frame = Frame(canvas)
     second_frame.configure(bg='white')  # set window background color
 
     # add that new frame to a window in the canvas
-    my_canvas.create_window((0, 0), window=second_frame, anchor="nw")
+    canvas.create_window((0, 0), window=second_frame, anchor="nw")
 
-    label = Label(second_frame, text='R1: Oh no, run!\n', bg='White', fg='Red')
-    label.grid(row=1, column=1)
+    label = Label(second_frame, text='R1: Oh no, run!\n', bg='White', fg='Red') # creating a label
+    label.grid(row=1, column=1) # label positioning
 
     # create a button to clear the chat
-    clear_button = Button(second_frame, text='CLEAR', command=lambda: clear_widget(label))
-    clear_button.grid(row=10000-2, column=10)
+    clear_button = Button(second_frame, text='CLEAR', command=lambda: clear_label(label))
+    clear_button.grid(row=10000-2, column=10) # button positioning
 
     def handleProtocol(): # handle WM_DELETE_WINDOW event
-        window.destroy()
+        window.destroy() # deleting the chat windows
 
     window.protocol("WM_DELETE_WINDOW", handleProtocol)
 
     window.mainloop()
 
-# TODO: change line
-# TODO: after defined somewhere in the program the boolean variables to se if the robot is chatching o is chatched implement the informations strings
-# TODO: create a button to clear the chat
-
-
-
+# TODO: By actions, print a specific message!
 
 if __name__ == '__main__':
     main()
