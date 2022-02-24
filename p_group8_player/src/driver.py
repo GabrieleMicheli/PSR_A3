@@ -210,7 +210,6 @@ class Driver():
 
         x = goal_in_base_link.pose.position.x
         y = goal_in_base_link.pose.position.y
-
         distance = math.sqrt(x ** 2 + y ** 2)
 
         return distance
