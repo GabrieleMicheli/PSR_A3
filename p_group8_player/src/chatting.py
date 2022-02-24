@@ -5,6 +5,9 @@ import rospy
 from tkinter import *  # Import tkinter library
 from tkinter import ttk
 
+def clear_widget(widget):
+    widget.destroy()
+
 def main():
     rospy.init_node('chatting_node') # init chatting node
 
@@ -37,7 +40,12 @@ def main():
     # add that new frame to a window in the canvas
     my_canvas.create_window((0, 0), window=second_frame, anchor="nw")
 
-    label = Label(second_frame, text='R1: Oh no, run!\n', bg='White', fg='Red').grid(row=1, column=1)
+    label = Label(second_frame, text='R1: Oh no, run!\n', bg='White', fg='Red')
+    label.grid(row=1, column=1)
+
+    # create a button to clear the chat
+    clear_button = Button(second_frame, text='CLEAR', command=lambda: clear_widget(label))
+    clear_button.grid(row=10000-2, column=10)
 
     def handleProtocol(): # handle WM_DELETE_WINDOW event
         window.destroy()
@@ -49,6 +57,9 @@ def main():
 # TODO: change line
 # TODO: after defined somewhere in the program the boolean variables to se if the robot is chatching o is chatched implement the informations strings
 # TODO: create a button to clear the chat
+
+
+
 
 if __name__ == '__main__':
     main()
