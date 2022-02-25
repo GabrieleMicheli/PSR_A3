@@ -490,15 +490,16 @@ class Driver():
         # Prey Detected -> Attack
         elif self.state == 'attack':
 
-            if (self.width / 2 - self.centroid_hunter[0]) < 0:
+            if (self.width / 2 - self.centroid_prey[0]) > 0:
                 rotation_direction = -1
-                speed = self.centroid_hunter[0]
+                speed = self.centroid_prey[0]
             else:
                 rotation_direction = 1
-                speed = self.width - self.centroid_hunter[0]
+                speed = self.width - self.centroid_prey[0]
 
-            angular_vel_to_attack = 0.01 * rotation_direction * speed
+            angular_vel_to_attack = 0.001 * rotation_direction * speed
 
+            # angular_vel_to_attack = 0.001 * (self.width / 2 - self.centroid_prey[0])
             # if np.sign(self.odom.twist.twist.linear.x) != np.sign(self.angular_vel_to_attack):
             #     self.angular_vel_to_attack = 2 * self.angular_vel_to_attack
             self.linear_vel_to_attack = 0.7
