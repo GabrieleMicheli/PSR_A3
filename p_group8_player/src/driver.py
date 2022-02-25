@@ -468,7 +468,6 @@ class Driver():
             self.wall_avoiding_angle = 0
 
         # rospy.loginfo('closest object angle: ' + str(self.wall_avoiding_angle))
-
     # ------------------------------------------------------
     #               takeAction function
     # ------------------------------------------------------
