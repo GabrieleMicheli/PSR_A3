@@ -29,7 +29,6 @@ class Driver():
         self.hunter_team_players = 'Not defined'
         self.prey_team_players = 'Not defined'
         self.cv_image = []
-        self.mask = []
         self.centroid_hunter = (0, 0)
         self.centroid_prey = (0, 0)
         self.state = 'wait'
@@ -43,6 +42,7 @@ class Driver():
         self.angular_vel_to_flee = 0
         self.linear_vel_to_avoid_wall = 0
         self.angular_vel_to_avoid_wall = 0
+        self.min_range_detected = 0
         self.height = 0
         self.width = 0
         self.odom = None
@@ -99,22 +99,22 @@ class Driver():
     def getTeam(self, red_players_list, green_players_list, blue_players_list):
         if self.name in red_players_list:
             self.team = 'Red'
-            self.prey = 'Blue'
-            self.hunter = 'Green'
+            self.prey = 'Green'
+            self.hunter = 'Blue'
             self.team_players = red_players_list
             self.prey_team_players = green_players_list
             self.hunter_team_players = blue_players_list
         elif self.name in green_players_list:
             self.team = 'Green'
-            self.prey = 'Red'
-            self.hunter = 'Blue'
+            self.prey = 'Blue'
+            self.hunter = 'Red'
             self.team_players = green_players_list
             self.prey_team_players = blue_players_list
             self.hunter_team_players = red_players_list
         elif self.name in blue_players_list:
             self.team = 'Blue'
-            self.prey = 'Green'
-            self.hunter = 'Red'
+            self.prey = 'Red'
+            self.hunter = 'Green'
             self.team_players = blue_players_list
             self.prey_team_players = red_players_list
             self.hunter_team_players = green_players_list
@@ -250,16 +250,19 @@ class Driver():
         self.cv_image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         self.height = self.cv_image.shape[0]
         self.width = self.cv_image.shape[1]
+
         # Calling getCentroid function and extracting hunter centroid coordinates and his mask
-        centroid_hunter, frame_hunter = self.getCentroid(self.cv_image, self.hunter)
-        self.decisionMaking()
+        centroid_hunter, frame_hunter, mask2, glubal2 = self.getCentroid(self.cv_image, self.hunter)
+
         (x_hunter, y_hunter) = centroid_hunter
         self.centroid_hunter = (x_hunter, y_hunter)
 
         # Calling getCentroid function and extracting prey centroid coordinates and his mask
-        centroid_prey, frame_prey = self.getCentroid(self.cv_image, self.prey)
+        centroid_prey, frame_prey, mask1, glubal1 = self.getCentroid(self.cv_image, self.prey)
         (x_prey, y_prey) = centroid_prey
         self.centroid_prey = (x_prey, y_prey)
+
+        self.decisionMaking()
 
         if self.debug:
             # rospy.loginfo(self.distance_hunter_to_prey)
@@ -273,8 +276,18 @@ class Driver():
 
             # Merge the prey and hunter masks and plot it
             hunters_n_preys = cv2.bitwise_or(frame_prey, frame_hunter)
+            makss = cv2.bitwise_or(mask1, mask2)
+            maskglubal = cv2.bitwise_or(glubal1, glubal2)
+            cv2.putText(hunters_n_preys, str(self.state), (0, self.height - 37),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=2, color=(0, 0, 0), thickness=5)
             cv2.namedWindow(self.name)
-            cv2.imshow(self.name, hunters_n_preys)
+            cv2.namedWindow('maks')
+            cv2.namedWindow('marcraaglubale')
+            cv2.imshow('marcraaglubale', maskglubal)
+            cv2.imshow('maks', makss)
+            cv2.imshow('prey', frame_prey)
+            cv2.imshow('hunter', frame_hunter)
+            # cv2.imshow(self.name, hunters_n_preys)
             cv2.waitKey(1)
 
     # ------------------------------------------------------
@@ -292,25 +305,25 @@ class Driver():
         player_identified = np.copy(image)
 
         if team == 'Red':
-            self.mask = cv2.inRange(image, (
+            mask = cv2.inRange(image, (
                 self.red_limits['B']['min'], self.red_limits['G']['min'], self.red_limits['R']['min']),
-                                    (self.red_limits['B']['max'], self.red_limits['G']['max'],
-                                     self.red_limits['R']['max']))
+                               (self.red_limits['B']['max'], self.red_limits['G']['max'],
+                                self.red_limits['R']['max']))
 
         elif team == 'Green':
-            self.mask = cv2.inRange(image, (
+            mask = cv2.inRange(image, (
                 self.green_limits['B']['min'], self.green_limits['G']['min'], self.green_limits['R']['min']),
-                                    (self.green_limits['B']['max'], self.green_limits['G']['max'],
-                                     self.green_limits['R']['max']))
+                               (self.green_limits['B']['max'], self.green_limits['G']['max'],
+                                self.green_limits['R']['max']))
 
         elif team == 'Blue':
-            self.mask = cv2.inRange(image, (
+            mask = cv2.inRange(image, (
                 self.blue_limits['B']['min'], self.blue_limits['G']['min'], self.blue_limits['R']['min']),
-                                    (self.blue_limits['B']['max'], self.blue_limits['G']['max'],
-                                     self.blue_limits['R']['max']))
+                               (self.blue_limits['B']['max'], self.blue_limits['G']['max'],
+                                self.blue_limits['R']['max']))
 
         # Extract results from mask
-        results = cv2.connectedComponentsWithStats(self.mask, self.connectivity, ltype=cv2.CV_32S)
+        results = cv2.connectedComponentsWithStats(mask, self.connectivity, ltype=cv2.CV_32S)
         no_labels = results[0]
         labels = results[1]
         stats = results[2]
@@ -319,9 +332,9 @@ class Driver():
         # Initialize variables
         maximum_area = 0
         largest_object_idx = 1
-        player_detected = True
         object_area = 0
         centroid = (0, 0)
+        largest_object = np.zeros([self.height, self.width], np.uint8)
 
         for i in range(1, no_labels):
             object_area = stats[i, cv2.CC_STAT_AREA]
@@ -330,8 +343,11 @@ class Driver():
                 largest_object_idx = i
 
         # Used only for eliminating noise detection
-        if object_area < 30:
+        if object_area < 1:
             player_detected = False
+
+        else:
+            player_detected = True
 
         # Append tuples of centroid coordinates if a player is detected
         if player_detected:
@@ -350,7 +366,7 @@ class Driver():
             # Identify in the image the centroid with red
             player_identified = cv2.circle(player_identified, (x, y), 15, (0, 0, 255), -1)
 
-        return centroid, player_identified
+        return centroid, player_identified, largest_object, mask
 
     # ------------------------------------------------------
     #               decisionMaking function
@@ -389,7 +405,7 @@ class Driver():
             else:
                 self.state = 'flee'
 
-        # If it detects no prey and no hunter and no wall, the player will wait and walk around
+        # If it detects no prey, no hunter and no wall, the player will wait and walk around
         if self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0) and self.wall_avoiding_angle == 0:
             self.state = 'wait'
 
@@ -397,8 +413,15 @@ class Driver():
     #               lidarScanCallback function
     # ------------------------------------------------------
     def lidarScanCallback(self, msgScan):
+        """
+            Create a mask with the largest blob of mask_original and return its centroid coordinates
+            :param team: Team name - String
+            :param image: Cv2 image - Uint8
+            :return centroid: list of tuples with (x,y) coordinates of the largest object
+            :return player_identified: Cv2 image mask - Uint8
+        """
 
-        # Get points to RVIZ
+        # <--------------------------------Rviz visualizing part--------------------------------------------->
         header = std_msgs.msg.Header(seq=msgScan.header.seq, stamp=msgScan.header.stamp,
                                      frame_id=msgScan.header.frame_id)
         fields = [PointField('x', 0, PointField.FLOAT32, 1),
@@ -414,16 +437,20 @@ class Driver():
             y = range * math.sin(theta)
             points.append([x, y, 0])
 
-        pc2 = point_cloud2.create_cloud(header, fields, points)  # create point_cloud2 data structure
-        self.publisher_laser_distance.publish(
-            pc2)  # publish (will automatically convert from point_cloud2 to Point cloud2 message)
+        # create point_cloud2 data structure
+        pc2 = point_cloud2.create_cloud(header, fields, points)
+
+        # publish (will automatically convert from point_cloud2 to Point cloud2 message)
+        self.publisher_laser_distance.publish(pc2)
 
         # Shortest obstacle
         rospy.loginfo('Find shortest obstacle')
 
+        # <------------------------------------Gazebo part-------------------------------------------------->
         if msgScan.ranges:  # If detects something
             min_range_detected_idx = msgScan.ranges.index(min(msgScan.ranges))  # find the shortest distance index
             min_range_angle = msgScan.angle_min + min_range_detected_idx * msgScan.angle_increment  # min range angle
+            self.min_range_detected = msgScan.ranges[min_range_detected_idx]
 
             if msgScan.ranges[min_range_detected_idx] < 3 and not \
                     (np.pi / 6 + np.pi / 2 <= min_range_angle <= 3 * np.pi / 2 - np.pi / 6):
@@ -444,6 +471,15 @@ class Driver():
     #               takeAction function
     # ------------------------------------------------------
     def takeAction(self):
+        """
+           Provides action information to robot based on decisionMaking function
+           :param state: Robot state - String
+           :param centroid_prey: (x,y) - Tuple
+           :param centroid_hunter: (x,y) - Tuple
+           :param wall_avoiding_angle : angle in radians
+           :return Linear velocities based on state : meters per second
+           :return Angular velocities based on state: radians per second
+        """
 
         # Nothing Detected nearby
         if self.state == 'wait':
@@ -452,10 +488,16 @@ class Driver():
 
         # Prey Detected -> Attack
         elif self.state == 'attack':
-            self.linear_vel_to_attack = 1
+            min_attack_speed = 0.5
+            max_attack_speed = 2.1
             self.angular_vel_to_attack = 0.001 * (self.width / 2 - self.centroid_prey[0])
             if np.sign(self.odom.twist.twist.linear.x) != np.sign(self.angular_vel_to_attack):
                 self.angular_vel_to_attack = 2 * self.angular_vel_to_attack
+
+            if self.min_range_detected != 0 and self.angular_vel_to_attack != 0:
+                self.linear_vel_to_attack = 10 / (self.min_range_detected + self.angular_vel_to_attack)
+            self.linear_vel_to_attack = min(self.linear_vel_to_attack, max_attack_speed)
+            self.linear_vel_to_attack = max(self.linear_vel_to_attack, min_attack_speed)
 
         # Hunter Detected -> Flee
         elif self.state == 'flee':
