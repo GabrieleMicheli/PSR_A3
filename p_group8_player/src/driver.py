@@ -252,13 +252,13 @@ class Driver():
         self.width = self.cv_image.shape[1]
 
         # Calling getCentroid function and extracting hunter centroid coordinates and his mask
-        centroid_hunter, frame_hunter, mask2, glubal2 = self.getCentroid(self.cv_image, self.hunter)
+        centroid_hunter, frame_hunter = self.getCentroid(self.cv_image, self.hunter)
 
         (x_hunter, y_hunter) = centroid_hunter
         self.centroid_hunter = (x_hunter, y_hunter)
 
         # Calling getCentroid function and extracting prey centroid coordinates and his mask
-        centroid_prey, frame_prey, mask1, glubal1 = self.getCentroid(self.cv_image, self.prey)
+        centroid_prey, frame_prey = self.getCentroid(self.cv_image, self.prey)
         (x_prey, y_prey) = centroid_prey
         self.centroid_prey = (x_prey, y_prey)
 
@@ -275,19 +275,15 @@ class Driver():
                             fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=2, color=(0, 255, 0), thickness=5)
 
             # Merge the prey and hunter masks and plot it
-            hunters_n_preys = cv2.bitwise_or(frame_prey, frame_hunter)
-            makss = cv2.bitwise_or(mask1, mask2)
-            maskglubal = cv2.bitwise_or(glubal1, glubal2)
-            cv2.putText(hunters_n_preys, str(self.state), (0, self.height - 37),
-                        fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=2, color=(0, 0, 0), thickness=5)
+            alpha = 0.5
+            beta = (1.0 - alpha)
+            hunters_n_preys = cv2.addWeighted(frame_hunter, alpha, frame_prey, beta, 0.0)
+            # hunters_n_preys = cv2.bitwise_or(frame_prey, frame_hunter)
+            cv2.putText(hunters_n_preys, str(self.state), (0, self.height - 50),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(0, 0, 0), thickness=5)
+
             cv2.namedWindow(self.name)
-            cv2.namedWindow('maks')
-            cv2.namedWindow('marcraaglubale')
-            cv2.imshow('marcraaglubale', maskglubal)
-            cv2.imshow('maks', makss)
-            cv2.imshow('prey', frame_prey)
-            cv2.imshow('hunter', frame_hunter)
-            # cv2.imshow(self.name, hunters_n_preys)
+            cv2.imshow(self.name, hunters_n_preys)
             cv2.waitKey(1)
 
     # ------------------------------------------------------
@@ -366,7 +362,7 @@ class Driver():
             # Identify in the image the centroid with red
             player_identified = cv2.circle(player_identified, (x, y), 15, (0, 0, 255), -1)
 
-        return centroid, player_identified, largest_object, mask
+        return centroid, player_identified
 
     # ------------------------------------------------------
     #               decisionMaking function
@@ -441,10 +437,10 @@ class Driver():
         pc2 = point_cloud2.create_cloud(header, fields, points)
 
         # publish (will automatically convert from point_cloud2 to Point cloud2 message)
-        self.publisher_laser_distance.publish(pc2)
+        # self.publisher_laser_distance.publish(pc2)
 
         # Shortest obstacle
-        rospy.loginfo('Find shortest obstacle')
+        # rospy.loginfo('Find shortest obstacle')
 
         # <------------------------------------Gazebo part-------------------------------------------------->
         if msgScan.ranges:  # If detects something
@@ -465,12 +461,12 @@ class Driver():
         else:
             self.wall_avoiding_angle = 0
 
-        rospy.loginfo('closest object angle: ' + str(self.wall_avoiding_angle))
+        # rospy.loginfo('closest object angle: ' + str(self.wall_avoiding_angle))
 
     # ------------------------------------------------------
     #               takeAction function
     # ------------------------------------------------------
-    def takeAction(self):
+    def takeAction(self, max_speed=1):
         """
            Provides action information to robot based on decisionMaking function
            :param state: Robot state - String
@@ -484,37 +480,50 @@ class Driver():
         # Nothing Detected nearby
         if self.state == 'wait':
             self.linear_vel_to_wait = 0.5
-            self.angular_vel_to_wait = 0.8
+            self.angular_vel_to_wait = 0.3
 
         # Prey Detected -> Attack
         elif self.state == 'attack':
-            min_attack_speed = 0.5
-            max_attack_speed = 2.1
-            self.angular_vel_to_attack = 0.001 * (self.width / 2 - self.centroid_prey[0])
-            if np.sign(self.odom.twist.twist.linear.x) != np.sign(self.angular_vel_to_attack):
-                self.angular_vel_to_attack = 2 * self.angular_vel_to_attack
 
-            if self.min_range_detected != 0 and self.angular_vel_to_attack != 0:
-                self.linear_vel_to_attack = 10 / (self.min_range_detected + self.angular_vel_to_attack)
-            self.linear_vel_to_attack = min(self.linear_vel_to_attack, max_attack_speed)
-            self.linear_vel_to_attack = max(self.linear_vel_to_attack, min_attack_speed)
+            if (self.width / 2 - self.centroid_hunter[0]) < 0:
+                rotation_direction = -1
+                speed = self.centroid_hunter[0]
+            else:
+                rotation_direction = 1
+                speed = self.width - self.centroid_hunter[0]
+
+            angular_vel_to_attack = 0.01 * rotation_direction * speed
+
+            # if np.sign(self.odom.twist.twist.linear.x) != np.sign(self.angular_vel_to_attack):
+            #     self.angular_vel_to_attack = 2 * self.angular_vel_to_attack
+            self.linear_vel_to_attack = 0.7
+            self.angular_vel_to_attack = min(angular_vel_to_attack, max_speed)
+
+            # self.linear_vel_to_attack = min(self.linear_vel_to_attack, max_attack_speed)
+            # self.linear_vel_to_attack = max(self.linear_vel_to_attack, min_attack_speed)
 
         # Hunter Detected -> Flee
         elif self.state == 'flee':
-            self.angular_vel_to_flee = 0.001 * np.sign(self.centroid_hunter[0] - self.width / 2) * \
-                                       min(self.width - self.centroid_hunter[0], self.centroid_hunter[0])
-            self.linear_vel_to_flee = 1
+
+            if (self.width / 2 - self.centroid_hunter[0]) > 0:
+                rotation_direction = -1
+                speed = self.centroid_hunter[0]
+            else:
+                rotation_direction = 1
+                speed = self.width - self.centroid_hunter[0]
+
+            angular_vel_to_flee = 0.001 * rotation_direction * speed
+            # rospy.loginfo('this is the angular' + str(angular_vel_to_flee))
+            self.linear_vel_to_flee = 0.7
+            self.angular_vel_to_flee = min(angular_vel_to_flee, max_speed)
+            # rospy.loginfo('this is the self' + str(self.angular_vel_to_flee))
 
         # Only Wall Detected -> Avoid_wall
         elif self.state == 'avoid_wall':
             self.angular_vel_to_avoid_wall = self.wall_avoiding_angle
-            self.linear_vel_to_avoid_wall = 0.2
+            self.linear_vel_to_avoid_wall = 0.15
             if self.angular_vel_to_avoid_wall < -np.pi / 4 or self.angular_vel_to_avoid_wall > np.pi / 4:
                 self.linear_vel_to_avoid_wall = 0
-
-    # def distance_to_camera(self, knownWidth = 306, focalLength = 525): # W = 306 mm, focal_length = 525 (see wafflepi specifications)
-    #     # compute and return the distance from the maker to the camera
-    #     return (knownWidth * focalLength)/ self.perWidth # distance in mm from an object in the camera respect to the camera
 
 
 def main():
