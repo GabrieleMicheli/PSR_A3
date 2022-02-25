@@ -88,6 +88,10 @@ class Driver():
         self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
         self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
         self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback)
+
+        # publishing the robot state: 'wait', 'attack', 'flee' and 'avoid_wall'
+        self.publisher_robot_state = rospy.Publisher('/' + self.name + '/state', String)
+
         self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist)
         # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
@@ -404,6 +408,8 @@ class Driver():
         # If it detects no prey, no hunter and no wall, the player will wait and walk around
         if self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0) and self.wall_avoiding_angle == 0:
             self.state = 'wait'
+
+        self.publisher_robot_state.publish(self.state) ###
 
     # ------------------------------------------------------
     #               lidarScanCallback function
