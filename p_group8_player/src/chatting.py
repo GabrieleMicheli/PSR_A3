@@ -14,10 +14,13 @@ class Chatting():
         self.second_frame = None
         self.canvas = None
         self.label = None
+        self.label_text = 'No label text'
         self.clear_button = None
+        self.stop_flag = False
 
         # SUBSCRIBER
-        self.robot_state_subscriber = rospy.Subscriber('/R1/state', String, self.robotStateCallback)
+        self.robot_state_subscriber = None
+        self.actual_robot_state = None
 
     def windowConfiguration(self, title, width, height, backGroundColour):
         self.window = Tk() # declare the window
@@ -45,8 +48,31 @@ class Chatting():
     def clearLabel(self):
         self.label.destroy()
 
-    def robotStateCallback(self, robot_state):
-       rospy.loginfo(robot_state.data) # print /R1/state
+    def robotStateCallback(self, robot_state_msg):
+        rospy.loginfo(robot_state_msg.data) # print /R1/state
+        actual_robot_state = robot_state_msg.data
+
+    def robotStatesCallback(self, robot_states_msg):
+        rospy.loginfo(robot_states_msg.data) # print /robot_name/state
+
+    def getRobotStates(self):
+        # Getting robot names
+        red_players_list = rospy.get_param('/red_players')
+        green_players_list = rospy.get_param('/green_players')
+        blue_players_list = rospy.get_param('/blue_players')
+        players_list = [*red_players_list, *green_players_list, *blue_players_list]
+        for i in range(players_list):
+            rospy.Subscriber('/' + players_list[i] + '/' + 'state', String, self.robotStatesCallback)
+
+    def getLabel(self, robot_state_msg):
+        if robot_state_msg.__eq__('wait'):
+            self.label_text = 'What a deadly bore'
+        elif robot_state_msg.__eq__('attack'):
+            self.label_text = 'I am very hungry'
+        elif robot_state_msg.__eq__('flee'):
+            self.label_text = 'Oh no, I have to run'
+        else:
+            self.label_text = 'Walls everywhere in this game'
 
     def chattingCallback(self, title, width, height, window_bg_colour, main_frame_bg_colour, canvas_bg_colour,
                          second_frame_bg_colour):
@@ -63,33 +89,34 @@ class Chatting():
 
         self.canvas.create_window((0, 0), window=self.second_frame, anchor="nw") # add the new frame to a window in the canvas
 
-        self.label = Label(self.second_frame, text='R1: Oh no, run!\n', bg='White', fg='Red')  # creating a label
-        self.label.grid(row=1, column=1)  # label positioning
+        while not self.stop_flag:
 
-        # create a button to clear the chat
-        self.clear_button = Button(self.second_frame, text='CLEAR', command=lambda: self.clearLabel())
-        self.clear_button.grid(row=10000 - 2, column=10)  # button positioning
+            self.robot_state_subscriber = rospy.Subscriber('/R1/state', String, self.robotStateCallback)
 
-        def handleProtocol():  # handle WM_DELETE_WINDOW event
-            self.window.destroy()  # deleting the chat windows
+            self.getLabel(self.robot_state_subscriber)
+            self.label = Label(self.second_frame, text=self.label_text, bg='White', fg='Red')  # creating a label
+            self.label.grid(row=1, column=1)  # label positioning
 
-        self.window.protocol("WM_DELETE_WINDOW", handleProtocol)
+            # create a button to clear the chat
+            self.clear_button = Button(self.second_frame, text='CLEAR', command=lambda: self.clearLabel())
+            self.clear_button.grid(row=10000 - 2, column=10)  # button positioning
 
-        self.window.mainloop()
+            def handleProtocol():  # handle WM_DELETE_WINDOW event
+                self.window.destroy()  # deleting the chat windows
+                self.stop_flag = True
 
-        # if robot_state_msg.__eq__('wait'):
-        #     label_text = 'What a deadly bore'
-        # elif robot_state_msg.__eq__('attack'):
-        #     label_text = 'I am very hungry'
-        # elif robot_state_msg.__eq__('flee'):
-        #     label_text = 'Oh no, I have to run'
-        # else:
-        #     label_text = 'Walls everywhere in this game'
+            self.window.protocol("WM_DELETE_WINDOW", handleProtocol)
+
+            self.window.mainloop()
+
+
         # TODO: By actions, print a specific message!
 
 def main():
 
     rospy.init_node('chatting_node') # init chatting node
+
+
 
     # DEFINING WINDOW PROPERTIES
     window_title = 'PSR TeamHunt p_group8 chat'; width = 500; height = 800
