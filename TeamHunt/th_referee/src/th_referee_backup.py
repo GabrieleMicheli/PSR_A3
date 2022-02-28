@@ -9,20 +9,18 @@
 # ------------------------
 #   IMPORTS
 # ------------------------
-import math, random
-import subprocess
-from colorama import Fore, Back, Style
-from copy import copy
+import random
+import time
 
-import pandas
-from functools import partial
+from colorama import Fore, Back, Style
+
 import rospy
 import tf_conversions  # Because of transformations
-import tf2_ros
-import geometry_msgs.msg
-from gazebo_msgs.msg import ModelState, ModelStates, ContactsState
+
+from gazebo_msgs.msg import ModelState, ContactsState
 from prettytable import PrettyTable
-from std_msgs.msg import String
+
+import subprocess, shlex, psutil
 
 
 # ------------------------
@@ -59,6 +57,10 @@ class Referee:
         self.score = {'red': 0, 'green': 0, 'blue': 0}
         self.final_score = {'red': 0, 'green': 0, 'blue': 0}
 
+        self.stop_recording = False ###
+        self.stop_time = None  ###
+        self.contact_flag = False  ###
+
         # Create an instance for each player
         self.players = {}
         count = 1
@@ -92,9 +94,7 @@ class Referee:
         # Print scoreboard
         self.printScores()
 
-        final_result = rospy.Publisher('winner', String, queue_size=10)
-
-        # Game over message
+        #Game over message
         winner = '(it\'s a tie)'
         if self.final_score['red'] > max(self.final_score['green'], self.final_score['blue']):
             winner = Fore.RED + 'Red' + Fore.RESET
@@ -104,7 +104,44 @@ class Referee:
             winner = Fore.BLUE + 'Blue' + Fore.RESET
 
         print(Style.BRIGHT + 'Game Over! Team ' + winner + ' wins!!!')
-        final_result.publish(winner)
+
+    def highlightRecording(self): ###
+
+        while True:
+
+            self.stop_recording = False
+            t_end = time.time() + 10  # recording max time (10 seconds)
+
+            while time.time() < t_end and not self.stop_recording:
+
+                # START RECORDING
+                # command = 'rosbag record -O subset /R1/camera/rgb/image_raw' #1st test
+                command = 'rosbag record -o $(find p_group8_bringup)/video/ /R1/camera/rgb/image_raw'
+                command = shlex.split(command)
+                rosbag_proc = subprocess.Popen(command)
+
+                if self.contact_flag: # if there's contact: save the duration time contact and save the video
+                    self.stop_time = time.time() - t_end # video time duration
+                    print(self.stop_time) # print the video time duration
+
+                    # KILL THE RECORDING PROCESS
+                    for proc in psutil.process_iter():
+                        if 'record' in proc.name() and set(command[2:]).issubset(proc.cmdline()):
+                            proc.send_signal(subprocess.signal.SIGINT)
+                    rosbag_proc.send_signal(subprocess.signal.SIGINT)
+                    print('Video recorded')
+
+                    # SAVE THE VIDEO IN A SPECIFIC DIRECTORY ?
+
+                    self.stop_recording = True # stop recording
+
+            # KILL THE RECORDING PROCESS
+            for proc in psutil.process_iter():
+                if 'record' in proc.name() and set(command[2:]).issubset(proc.cmdline()):
+                    proc.send_signal(subprocess.signal.SIGINT)
+            rosbag_proc.send_signal(subprocess.signal.SIGINT)
+            print('No video')
+
 
     def printScores(self):
 
@@ -196,6 +233,11 @@ class Referee:
 
             self.score[self.players[hunter].team_my] += self.params['positive_score']
             self.score[self.players[prey].team_my] += self.params['negative_score']
+
+            # print(hunter + 'has killed' + prey) # Gabriele
+            # Here it's possible to see if there's a contact -> if there's a contact, stop recording
+            # self.stop_recording = True ###
+            self.contact_flag = True ###
 
     def killPlayer(self, name):
         self.killed.append(name)
