@@ -7,6 +7,9 @@ from std_msgs.msg import String
 import tf2_ros
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist, PoseStamped
+from visualization_msgs.msg import Marker, MarkerArray
+from geometry_msgs.msg import Point
+
 from driver_functions import *
 import numpy as np
 import math
@@ -14,9 +17,16 @@ from math import *
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import PointCloud2, PointField, Image, LaserScan
 from sensor_msgs import point_cloud2
+from colorama import Fore, Back, Style
+from termcolor import cprint
+from prettytable import PrettyTable
+from itertools import groupby
+from operator import itemgetter
+import random
 
 
-class Driver():
+class Driver:
+
     def __init__(self):
 
         # <---------------------------------------------------------------------------------------------------------->
@@ -31,6 +41,7 @@ class Driver():
         self.cv_image = []
         self.centroid_hunter = (0, 0)
         self.centroid_prey = (0, 0)
+        self.centroid_teammate = (0, 0)
         self.state = 'wait'
         self.distance_hunter_to_prey = 0
         self.wall_avoiding_angle = 0
@@ -42,11 +53,14 @@ class Driver():
         self.angular_vel_to_flee = 0
         self.linear_vel_to_avoid_wall = 0
         self.angular_vel_to_avoid_wall = 0
+        self.linear_vel_to_avoid_teammate = 0
+        self.angular_vel_to_avoid_teammate = 0
         self.min_range_detected = 0
         self.height = 0
         self.width = 0
         self.odom = None
         self.position = (0, 0)
+        self.average_gap = 0
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -80,20 +94,27 @@ class Driver():
 
         # Other parameters
         self.connectivity = 4
+        self.laser_thresh = 1.2
 
         # <---------------------------------------------------------------------------------------------------------->
         # <-----------------------------Publishers and Subscribers--------------------------------------------------->
         # <---------------------------------------------------------------------------------------------------------->
-        self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback)
-        self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback)
-        self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback)
-        self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback)
-
+        self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallback,
+                                                queue_size=1)
+        self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback,
+                                                  queue_size=1)
+        self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback,
+                                                 self.lidarClustering, queue_size=1)
+        self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback,
+                                                queue_size=1)
+        self.referee_subscriber = rospy.Subscriber('/winner', String, self.callbackPodium, queue_size=1)
         # publishing the robot state: 'wait', 'attack', 'flee' and 'avoid_wall'
-        self.publisher_robot_state = rospy.Publisher('/' + self.name + '/state', String)
+        self.publisher_robot_state = rospy.Publisher('/' + self.name + '/state', String, queue_size=1)
 
-        self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
-        self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist)
+        self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2, queue_size=1)
+        self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
+        self.clustering_lidar = rospy.Publisher('/' + self.name + 'marker_array', MarkerArray, queue_size=1)
+
         # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
         # self.laser_scan_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.laser_scan_callback)
 
@@ -195,6 +216,10 @@ class Driver():
         elif self.state == 'avoid_wall':
             twist.linear.x = self.linear_vel_to_avoid_wall
             twist.angular.z = self.angular_vel_to_avoid_wall
+        # elif self.state == 'avoid_teammate':
+        #     twist.linear.x = self.linear_vel_to_avoid_teammate
+        #     twist.angular.z = self.angular_vel_to_avoid_teammate
+
         elif self.goal_active:
             twist.linear.x = speed
             twist.angular.z = angle
@@ -257,7 +282,6 @@ class Driver():
 
         # Calling getCentroid function and extracting hunter centroid coordinates and his mask
         centroid_hunter, frame_hunter = self.getCentroid(self.cv_image, self.hunter)
-
         (x_hunter, y_hunter) = centroid_hunter
         self.centroid_hunter = (x_hunter, y_hunter)
 
@@ -266,10 +290,14 @@ class Driver():
         (x_prey, y_prey) = centroid_prey
         self.centroid_prey = (x_prey, y_prey)
 
-        self.decisionMaking()
+        # Calling getCentroid function and extracting teammate centroid coordinates and his mask
+        centroid_teammate, frame_teammate = self.getCentroid(self.cv_image, self.team)
+        (x_teammate, y_teammate) = centroid_teammate
+        self.centroid_teammate = (x_teammate, y_teammate)
 
+        self.decisionMaking()
+        self.printScores()
         if self.debug:
-            # rospy.loginfo(self.distance_hunter_to_prey)
             if (x_hunter, y_hunter) != (0, 0):
                 cv2.putText(frame_hunter, 'Hunter!', org=(x_hunter, y_hunter),
                             fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=2, color=(0, 0, 255), thickness=5)
@@ -334,7 +362,6 @@ class Driver():
         largest_object_idx = 1
         object_area = 0
         centroid = (0, 0)
-        largest_object = np.zeros([self.height, self.width], np.uint8)
 
         for i in range(1, no_labels):
             object_area = stats[i, cv2.CC_STAT_AREA]
@@ -356,7 +383,6 @@ class Driver():
             x = int(x)
             y = int(y)
             centroid = (x, y)
-            self.perWidht = stats[largest_object_idx, cv2.CC_STAT_WIDTH]
 
             # Mask the largest object and paint with green
             largest_object = (labels == largest_object_idx)
@@ -381,20 +407,23 @@ class Driver():
            :return state : state of robot - String
         """
 
-        # If it detects a wall_avoiding_angle it's only a "wall" when both prey and hunter centroids are (0,0)
+        # If it detects a wall_avoiding_angle it's only a "wall" when both prey, hunter and teammate centroids are (0,0)
         if self.centroid_prey == (0, 0) and self.centroid_hunter == (0, 0) and self.wall_avoiding_angle != 0:
             self.state = 'avoid_wall'
+            # print(Fore.RED + 'My name is ' + self.name + ' and I am too close to the wall. Avoiding it.' + Fore.RESET)
+            # cprint("\nThank you for using AR Paint, hope to you see you again soon\n", color='white',
+            #        on_color='on_blue')
 
         # If it detects a hunter and no prey, the player will flee away
-        if self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0):
+        elif self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0):
             self.state = 'flee'
 
         # If it detects a prey and no hunter, the player will attack
-        if self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0):
+        elif self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0):
             self.state = 'attack'
 
         # If it detects a prey and a hunter, the player will make a decision based on the distance between both
-        if self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0):
+        elif self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0) and self.wall_avoiding_angle == 0:
 
             # Calculates the euclidean distance between the two centroids
             self.distance_hunter_to_prey = sqrt((self.centroid_hunter[0] - self.centroid_prey[0]) ** 2
@@ -406,10 +435,13 @@ class Driver():
                 self.state = 'flee'
 
         # If it detects no prey, no hunter and no wall, the player will wait and walk around
-        if self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0) and self.wall_avoiding_angle == 0:
+        elif self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0):
             self.state = 'wait'
 
-        self.publisher_robot_state.publish(self.state) ###
+        # elif self.centroid_teammate != (0,0):
+        #     self.state = 'avoid_teammate'
+
+        # self.publisher_robot_state.publish(self.state)  ###
 
     # ------------------------------------------------------
     #               lidarScanCallback function
@@ -440,38 +472,60 @@ class Driver():
             points.append([x, y, 0])
 
         # create point_cloud2 data structure
-        pc2 = point_cloud2.create_cloud(header, fields, points)
+        self.pc2 = point_cloud2.create_cloud(header, fields, points)
 
         # publish (will automatically convert from point_cloud2 to Point cloud2 message)
-        # self.publisher_laser_distance.publish(pc2)
+        self.publisher_laser_distance.publish(self.pc2)
 
         # Shortest obstacle
         # rospy.loginfo('Find shortest obstacle')
 
         # <------------------------------------Gazebo part-------------------------------------------------->
-        if msgScan.ranges:  # If detects something
-            min_range_detected_idx = msgScan.ranges.index(min(msgScan.ranges))  # find the shortest distance index
-            min_range_angle = msgScan.angle_min + min_range_detected_idx * msgScan.angle_increment  # min range angle
-            self.min_range_detected = msgScan.ranges[min_range_detected_idx]
+        # if msgScan.ranges:  # If detects something
+        #
+        #     min_range_detected_idx = msgScan.ranges.index(min(msgScan.ranges))  # find the shortest distance index
+        #     min_range_angle = msgScan.angle_min + min_range_detected_idx * msgScan.angle_increment  # min range angle
+        #     self.min_range_detected = msgScan.ranges[min_range_detected_idx]  # min range
+        #
+        #     if msgScan.ranges[min_range_detected_idx] < 1.5 and not \
+        #             (np.pi / 6 + np.pi / 2 <= min_range_angle <= 3 * np.pi / 2 - np.pi / 6):
+        #
+        #         if min_range_angle < np.pi / 2:
+        #             self.wall_avoiding_angle = min_range_angle - (np.pi / 6 + np.pi / 2)
+        #
+        #         else:
+        #             self.wall_avoiding_angle = min_range_angle - (3 * np.pi / 2 - np.pi / 6)
+        #     else:
+        #         self.wall_avoiding_angle = 0
+        # else:
+        #     self.wall_avoiding_angle = 0
 
-            if msgScan.ranges[min_range_detected_idx] < 3 and not \
-                    (np.pi / 6 + np.pi / 2 <= min_range_angle <= 3 * np.pi / 2 - np.pi / 6):
+        range_angles = np.arange(len(msgScan.ranges))
+        ranges = np.array(msgScan.ranges)
+        range_mask = (ranges > self.laser_thresh)
+        ranges = list(range_angles[range_mask])
 
-                if min_range_angle < np.pi / 2:
-                    self.wall_avoiding_angle = min_range_angle - (np.pi / 6 + np.pi / 2)
+        gap_list = []
 
-                else:
-                    self.wall_avoiding_angle = min_range_angle - (3 * np.pi / 2 - np.pi / 6)
-            else:
-                self.wall_avoiding_angle = 0
-        else:
-            self.wall_avoiding_angle = 0
+        for k, g in groupby(enumerate(ranges), lambda ix: ix[1] - ix[0]):
+            g = (map(itemgetter(1), g))
+            g = list(map(int, g))
+            gap_list.append((g[0], g[-1]))
+        gap_list.sort(key=len)
+
+        largest_gap = gap_list[-1]
+        min_angle, max_angle = largest_gap[0] * (msgScan.angle_increment * 180 / np.pi), largest_gap[-1] * (
+                msgScan.angle_increment * 180 / np.pi)
+        self.average_gap = (max_angle - min_angle) / 2
+
+        self.wall_avoiding_angle = min_angle + self.average_gap
 
         # rospy.loginfo('closest object angle: ' + str(self.wall_avoiding_angle))
+
     # ------------------------------------------------------
     #               takeAction function
     # ------------------------------------------------------
-    def takeAction(self, max_speed=1):
+    def takeAction(self, max_speed=1.1):
         """
            Provides action information to robot based on decisionMaking function
            :param state: Robot state - String
@@ -490,7 +544,7 @@ class Driver():
         # Prey Detected -> Attack
         elif self.state == 'attack':
 
-            if (self.width / 2 - self.centroid_prey[0]) > 0:
+            if (self.width / 2 - self.centroid_prey[0]) < 0:
                 rotation_direction = -1
                 speed = self.centroid_prey[0]
             else:
@@ -502,7 +556,7 @@ class Driver():
             # angular_vel_to_attack = 0.001 * (self.width / 2 - self.centroid_prey[0])
             # if np.sign(self.odom.twist.twist.linear.x) != np.sign(self.angular_vel_to_attack):
             #     self.angular_vel_to_attack = 2 * self.angular_vel_to_attack
-            self.linear_vel_to_attack = 0.7
+            self.linear_vel_to_attack = 1.0
             self.angular_vel_to_attack = min(angular_vel_to_attack, max_speed)
 
             # self.linear_vel_to_attack = min(self.linear_vel_to_attack, max_attack_speed)
@@ -520,16 +574,134 @@ class Driver():
 
             angular_vel_to_flee = 0.001 * rotation_direction * speed
             # rospy.loginfo('this is the angular' + str(angular_vel_to_flee))
-            self.linear_vel_to_flee = 0.7
+            self.linear_vel_to_flee = 0.8
             self.angular_vel_to_flee = min(angular_vel_to_flee, max_speed)
             # rospy.loginfo('this is the self' + str(self.angular_vel_to_flee))
 
+        # # Teammate detected -> Avoid it
+        # elif self.state == 'avoid_teammate':
+        #
+        #     if (self.width / 2 - self.centroid_teammate[0]) > 0:
+        #         rotation_direction = -1
+        #         speed = self.centroid_teammate[0]
+        #     else:
+        #         rotation_direction = 1
+        #         speed = self.width - self.centroid_teammate[0]
+        #
+        #     angular_vel_to_avoid_teammate = 0.001 * rotation_direction * speed
+        #
+        #     self.linear_vel_to_avoid_teammate = 0.8
+        #     self.angular_vel_to_avoid_teammate = min(angular_vel_to_avoid_teammate, max_speed)
+
         # Only Wall Detected -> Avoid_wall
         elif self.state == 'avoid_wall':
+            # max_gap = 40
+            # Kp = 0.05
+            #
+            # if self.average_gap < max_gap:
+            #     self.angular_vel_to_avoid_wall = -0.5
+            #     self.linear_vel_to_avoid_wall = 0.3
+            # else:
+            #     self.linear_vel_to_avoid_wall = 0.5
+            #     self.angular_vel_to_avoid_wall = Kp * (-1) * (90 - self.wall_avoiding_angle)
+
             self.angular_vel_to_avoid_wall = self.wall_avoiding_angle
-            self.linear_vel_to_avoid_wall = 0.15
+            self.linear_vel_to_avoid_wall = 0.6
+            #
             if self.angular_vel_to_avoid_wall < -np.pi / 4 or self.angular_vel_to_avoid_wall > np.pi / 4:
                 self.linear_vel_to_avoid_wall = 0
+                self.angular_vel_to_avoid_wall = 1.4
+
+    def printScores(self):
+
+        print(Style.BRIGHT + '\nPlayer by player scores:' + Style.RESET_ALL)
+        table = PrettyTable(
+            [Back.LIGHTWHITE_EX + "Player", "Team", "State" + Style.RESET_ALL])
+        if self.team == 'Red':
+            player_color = Fore.RED
+        elif self.team == 'Green':
+            player_color = Fore.GREEN
+        elif self.team == 'Blue':
+            player_color = Fore.BLUE
+
+        table.add_row([player_color + self.name + Fore.RESET,
+                       player_color + self.team + Fore.RESET, self.state])
+
+        table.align = 'c'
+        table.align[Back.LIGHTWHITE_EX + "Player"] = 'l'
+        table.align['Team'] = 'l'
+        print(table)
+
+    def callbackPodium(self, winner):
+
+        cv2.namedWindow('Winning Team', cv2.WINDOW_NORMAL)
+        img = cv2.imread('podium.jpg', 1)
+        cv2.resizeWindow('Winning Team', 1200, 675)
+
+        first_place = cv2.imread('green.jpg', 1)
+        first_place = cv2.resize(first_place, (160, 90), interpolation=cv2.INTER_AREA)
+
+        second_place = cv2.imread('blue.jpg', 1)
+        second_place = cv2.resize(second_place, (100, 70), interpolation=cv2.INTER_AREA)
+
+        third_place = cv2.imread('red.jpg', 1)
+        third_place = cv2.resize(third_place, (100, 70), interpolation=cv2.INTER_AREA)
+
+        img[100:190, 180:340] = first_place
+        img[130:200, 50:150] = second_place
+        img[140:210, 375:475] = third_place
+        cv2.putText(img, 'Team Hunting Olympics - Aveiro 2022', (80, 310),
+                    fontFace=cv2.FONT_ITALIC, fontScale=0.5, color=(100, 50, 200), thickness=2)
+
+        cv2.imshow('Winning Team', img)
+        cv2.waitKey(0)
+
+    def createMarker(self, id):
+        marker = Marker()
+        marker.id = id
+        marker.header.frame_id = "left_laser"
+        marker.type = marker.CUBE_LIST
+        marker.action = marker.ADD
+        marker.scale.x = 0.2
+        marker.scale.y = 0.2
+        marker.scale.z = 0.2
+        marker.color.r = random.random()
+        marker.color.g = random.random()
+        marker.color.b = random.random()
+        marker.color.a = 1.0
+        marker.pose.orientation.w = 1.0
+        marker.pose.position.x = 0
+        marker.pose.position.y = 0
+        marker.pose.position.z = 0
+
+        return marker
+
+    def lidarClustering(self, msg):
+        thresh = 0.8
+        marker_array = MarkerArray()
+        marker = self.createMarker(0)
+        marker_array.markers.append(marker)
+
+        for idx, (range1, range2) in enumerate(zip(msg.ranges[:-1], msg.ranges[1:])):
+            if range1 < 0.1 or range2 < 0.1:
+                continue
+
+            diff = abs(range2 - range1)
+
+            if diff > thresh:
+                marker = self.createMarker(idx + 1)
+                marker_array.markers.append(marker)
+
+            theta = msg.angle_min + idx * msg.angle_increment
+            x = range1 * cos(theta)
+            y = range1 * sin(theta)
+
+            point = Point(x=x, y=y, z=0)
+
+            last_marker = marker_array.markers[-1]
+            last_marker.points.append(point)
+
+        self.clustering_lidar.publish(marker_array)
 
 
 def main():

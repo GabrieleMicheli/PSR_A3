@@ -22,6 +22,8 @@ import tf2_ros
 import geometry_msgs.msg
 from gazebo_msgs.msg import ModelState, ModelStates, ContactsState
 from prettytable import PrettyTable
+from std_msgs.msg import String
+
 
 # ------------------------
 #   DATA STRUCTURES
@@ -90,7 +92,9 @@ class Referee:
         # Print scoreboard
         self.printScores()
 
-        #Game over message
+        final_result = rospy.Publisher('winner', String, queue_size=10)
+
+        # Game over message
         winner = '(it\'s a tie)'
         if self.final_score['red'] > max(self.final_score['green'], self.final_score['blue']):
             winner = Fore.RED + 'Red' + Fore.RESET
@@ -100,6 +104,7 @@ class Referee:
             winner = Fore.BLUE + 'Blue' + Fore.RESET
 
         print(Style.BRIGHT + 'Game Over! Team ' + winner + ' wins!!!')
+        final_result.publish(winner)
 
     def printScores(self):
 
