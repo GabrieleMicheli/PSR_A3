@@ -4,6 +4,7 @@
 import rospy
 from tkinter import *  # Import tkinter library
 from tkinter import ttk
+from PSR_A3.p_group8_player.src.driver import *
 
 def create_window(title, width, height, backGroundColour):
     window = Tk()  # declare the window
@@ -46,7 +47,7 @@ def main():
 
     scrollbar = addScrollbarToCanvas(main_frame, canvas)  # adding a scrollbar to canvas
 
-    # configure the canvas
+    # Configure canvas
     canvas.configure(yscrollcommand=scrollbar.set)
     canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
@@ -56,6 +57,8 @@ def main():
 
     # add that new frame to a window in the canvas
     canvas.create_window((0, 0), window=second_frame, anchor="nw")
+
+    # Import robot states from driver nodes
 
     label = Label(second_frame, text='R1: Oh no, run!\n', bg='White', fg='Red') # creating a label
     label.grid(row=1, column=1) # label positioning

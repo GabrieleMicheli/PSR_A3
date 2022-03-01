@@ -1,4 +1,4 @@
-image: /home/nel/catkin_ws/src/PSR/A3/PSR_A3/p_group8_nav/maps/test.pgm
+image: /home/josepedropinto/catkin_ws/src/PSR_A3/p_group8_nav/maps/test.pgm
 resolution: 0.050000
 origin: [-100.000000, -100.000000, 0.000000]
 negate: 0

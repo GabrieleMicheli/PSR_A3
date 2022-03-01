@@ -61,6 +61,9 @@ class Driver:
         self.odom = None
         self.position = (0, 0)
         self.average_gap = 0
+        self.min_range_angle = 0
+        self.min_range_point = (0, 0, 0)
+        self.exist_wall = False
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -95,7 +98,8 @@ class Driver:
         # Other parameters
         self.connectivity = 4
         self.laser_thresh = 1.2
-
+        self.color_marker1 = 1.0
+        self.color_marker0 = 0
         # <---------------------------------------------------------------------------------------------------------->
         # <-----------------------------Publishers and Subscribers--------------------------------------------------->
         # <---------------------------------------------------------------------------------------------------------->
@@ -104,7 +108,9 @@ class Driver:
         self.camera_subscriber = rospy.Subscriber('/' + self.name + '/camera/rgb/image_raw', Image, self.cameraCallback,
                                                   queue_size=1)
         self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback,
-                                                 self.lidarClustering, queue_size=1)
+                                                 queue_size=1)
+        # self.clustering_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarClustering,
+        #                                               queue_size=1)
         self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback,
                                                 queue_size=1)
         self.referee_subscriber = rospy.Subscriber('/winner', String, self.callbackPodium, queue_size=1)
@@ -113,7 +119,7 @@ class Driver:
 
         self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2, queue_size=1)
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
-        self.clustering_lidar = rospy.Publisher('/' + self.name + 'marker_array', MarkerArray, queue_size=1)
+        self.clustering_lidar = rospy.Publisher('/' + self.name + '/marker_array', MarkerArray, queue_size=1)
 
         # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
         # self.laser_scan_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.laser_scan_callback)
@@ -311,7 +317,7 @@ class Driver:
             beta = (1.0 - alpha)
             hunters_n_preys = cv2.addWeighted(frame_hunter, alpha, frame_prey, beta, 0.0)
             # hunters_n_preys = cv2.bitwise_or(frame_prey, frame_hunter)
-            cv2.putText(hunters_n_preys, str(self.state), (0, self.height - 50),
+            cv2.putText(hunters_n_preys, str(self.state) + '' + str(self.exist_wall), (0, self.height - 50),
                         fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(0, 0, 0), thickness=5)
 
             cv2.namedWindow(self.name)
@@ -408,22 +414,22 @@ class Driver:
         """
 
         # If it detects a wall_avoiding_angle it's only a "wall" when both prey, hunter and teammate centroids are (0,0)
-        if self.centroid_prey == (0, 0) and self.centroid_hunter == (0, 0) and self.wall_avoiding_angle != 0:
+        if self.centroid_prey == (0, 0) and self.centroid_hunter == (0, 0) and self.exist_wall == True:
             self.state = 'avoid_wall'
             # print(Fore.RED + 'My name is ' + self.name + ' and I am too close to the wall. Avoiding it.' + Fore.RESET)
             # cprint("\nThank you for using AR Paint, hope to you see you again soon\n", color='white',
             #        on_color='on_blue')
 
         # If it detects a hunter and no prey, the player will flee away
-        elif self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0):
+        elif self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0) and self.exist_wall == False:
             self.state = 'flee'
 
         # If it detects a prey and no hunter, the player will attack
-        elif self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0):
+        elif self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0) and self.exist_wall == False:
             self.state = 'attack'
 
         # If it detects a prey and a hunter, the player will make a decision based on the distance between both
-        elif self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0) and self.wall_avoiding_angle == 0:
+        elif self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0) and self.wall_avoiding_angle == 0 and self.exist_wall == False:
 
             # Calculates the euclidean distance between the two centroids
             self.distance_hunter_to_prey = sqrt((self.centroid_hunter[0] - self.centroid_prey[0]) ** 2
@@ -435,7 +441,7 @@ class Driver:
                 self.state = 'flee'
 
         # If it detects no prey, no hunter and no wall, the player will wait and walk around
-        elif self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0):
+        elif self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0) and self.exist_wall == False:
             self.state = 'wait'
 
         # elif self.centroid_teammate != (0,0):
@@ -481,12 +487,20 @@ class Driver:
         # rospy.loginfo('Find shortest obstacle')
 
         # <------------------------------------Gazebo part-------------------------------------------------->
-        # if msgScan.ranges:  # If detects something
-        #
-        #     min_range_detected_idx = msgScan.ranges.index(min(msgScan.ranges))  # find the shortest distance index
-        #     min_range_angle = msgScan.angle_min + min_range_detected_idx * msgScan.angle_increment  # min range angle
-        #     self.min_range_detected = msgScan.ranges[min_range_detected_idx]  # min range
-        #
+        if msgScan.ranges:  # If detects something
+
+            min_range_detected_idx = msgScan.ranges.index(min(msgScan.ranges))  # find the shortest distance index
+            self.min_range_angle = msgScan.angle_min + min_range_detected_idx * msgScan.angle_increment  # min range angle
+            self.min_range_detected = msgScan.ranges[min_range_detected_idx]  # min range
+
+            # x_min_detected = round(self.min_range_detected * cos(self.min_range_angle),3)
+            # y_min_detected = round(self.min_range_detected * sin(self.min_range_angle),3)
+
+            x_min_detected = self.min_range_detected * cos(self.min_range_angle)
+            y_min_detected = self.min_range_detected * sin(self.min_range_angle)
+            self.min_range_point = (x_min_detected, y_min_detected, 0)
+
+
         #     if msgScan.ranges[min_range_detected_idx] < 1.5 and not \
         #             (np.pi / 6 + np.pi / 2 <= min_range_angle <= 3 * np.pi / 2 - np.pi / 6):
         #
@@ -520,7 +534,61 @@ class Driver:
 
         self.wall_avoiding_angle = min_angle + self.average_gap
 
-        # rospy.loginfo('closest object angle: ' + str(self.wall_avoiding_angle))
+        # -------------------------------------------------------------------------------------------------------------
+
+        # Clustering function
+        thresh = 30
+        marker_array = MarkerArray()
+        marker = self.createMarker(0)
+        marker_array.markers.append(marker)
+        # last_marker = []
+
+        for idx, (range1, range2) in enumerate(zip(msgScan.ranges[:-1], msgScan.ranges[1:])):
+            if range1 < 0.1 or range2 < 0.1:
+                continue
+
+            diff = abs(range2 - range1)
+
+            if range1 > 3.5 or range2 > 3.5:
+                marker = self.createMarker(idx + 1)
+                marker_array.markers.append(marker)
+                continue
+
+            if diff > thresh:
+                marker = self.createMarker(idx + 1)
+                marker_array.markers.append(marker)
+
+            theta = msgScan.angle_min + idx * msgScan.angle_increment
+            x = range1 * cos(theta)
+            y = range1 * sin(theta)
+
+            # x = round(range1 * cos(theta), 3)
+            # y = round(range1 * sin(theta), 3)
+
+            point = Point(x=x, y=y, z=0)
+
+            last_marker = marker_array.markers[-1]
+            last_marker.points.append(point)
+
+            if len(last_marker.points) >= 35:
+                self.color_marker0 = 1
+                self.color_marker1 = 0
+
+            elif len(last_marker.points) < 35:
+                self.color_marker0 = 0
+                self.color_marker1 = 1
+        error = 0.05
+        for marker in marker_array.markers:
+            if self.min_range_point in marker.points:
+                self.exist_wall = True
+            elif (self.min_range_point[0] - self.min_range_point[0]*error) < marker.points[0] < (self.min_range_point[0] + self.min_range_point[0]*error) and\
+                    (self.min_range_point[1] - self.min_range_point[1]*error) < marker.points[1] < (self.min_range_point[1] + self.min_range_point[1]*error):
+                rospy.loginfo('HEREEEEEEEEEEEEEEEEEE??????????????')
+                self.exist_wall = True
+            else:
+                self.exist_wall = False
+
+        self.clustering_lidar.publish(marker_array)
 
     # ------------------------------------------------------
     #               takeAction function
@@ -657,17 +725,18 @@ class Driver:
         cv2.waitKey(0)
 
     def createMarker(self, id):
+
         marker = Marker()
         marker.id = id
-        marker.header.frame_id = "left_laser"
+        marker.header.frame_id = self.name + '/base_scan'
         marker.type = marker.CUBE_LIST
         marker.action = marker.ADD
-        marker.scale.x = 0.2
-        marker.scale.y = 0.2
-        marker.scale.z = 0.2
-        marker.color.r = random.random()
-        marker.color.g = random.random()
-        marker.color.b = random.random()
+        marker.scale.x = 0.05
+        marker.scale.y = 0.05
+        marker.scale.z = 0.05
+        marker.color.r = self.color_marker1
+        marker.color.g = self.color_marker0
+        marker.color.b = self.color_marker0
         marker.color.a = 1.0
         marker.pose.orientation.w = 1.0
         marker.pose.position.x = 0
@@ -676,32 +745,36 @@ class Driver:
 
         return marker
 
-    def lidarClustering(self, msg):
-        thresh = 0.8
-        marker_array = MarkerArray()
-        marker = self.createMarker(0)
-        marker_array.markers.append(marker)
-
-        for idx, (range1, range2) in enumerate(zip(msg.ranges[:-1], msg.ranges[1:])):
-            if range1 < 0.1 or range2 < 0.1:
-                continue
-
-            diff = abs(range2 - range1)
-
-            if diff > thresh:
-                marker = self.createMarker(idx + 1)
-                marker_array.markers.append(marker)
-
-            theta = msg.angle_min + idx * msg.angle_increment
-            x = range1 * cos(theta)
-            y = range1 * sin(theta)
-
-            point = Point(x=x, y=y, z=0)
-
-            last_marker = marker_array.markers[-1]
-            last_marker.points.append(point)
-
-        self.clustering_lidar.publish(marker_array)
+    # def lidarClustering(self, msg):
+    #     thresh = 0.8
+    #     marker_array = MarkerArray()
+    #     marker = self.createMarker(0)
+    #     marker_array.markers.append(marker)
+    #     rospy.loginfo('before for')
+    #
+    #     for idx, (range1, range2) in enumerate(zip(msg.ranges[:-1], msg.ranges[1:])):
+    #         if range1 < 0.1 or range2 < 0.1:
+    #             continue
+    #
+    #         diff = abs(range2 - range1)
+    #
+    #         if diff > thresh:
+    #             marker = self.createMarker(idx + 1)
+    #             marker_array.markers.append(marker)
+    #
+    #         theta = msg.angle_min + idx * msg.angle_increment
+    #         x = range1 * cos(theta)
+    #         y = range1 * sin(theta)
+    #
+    #         point = Point(x=x, y=y, z=0)
+    #
+    #         last_marker = marker_array.markers[-1]
+    #         last_marker.points.append(point)
+    #     # counter number of points of last masker
+    #     # if > 8
+    #     # wall =true
+    #     # self.state = 'avoid_wall'
+    #     self.clustering_lidar.publish(marker_array)
 
 
 def main():
