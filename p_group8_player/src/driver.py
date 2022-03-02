@@ -10,7 +10,7 @@ from geometry_msgs.msg import Twist, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
 from driver_functions import *
-import OptimizationUtils.utilities as opt_utilities
+# import OptimizationUtils.utilities as opt_utilities
 # import atom_core.atom
 import numpy as np
 import math
@@ -35,6 +35,9 @@ class Driver:
         # <---------------------------------------------------------------------------------------------------------->
         # <--------------------------------Variable Initialization--------------------------------------------------->
         # <---------------------------------------------------------------------------------------------------------->
+        self.old_state = 'None'
+        self.state_msg = None
+        self.actual_state = 'None'
         self.team = 'Not defined'
         self.prey = 'Not defined'
         self.hunter = 'Not defined'
@@ -126,7 +129,7 @@ class Driver:
                                                        self.getCameraInfoCallback, queue_size=1)
         # self.referee_subscriber = rospy.Subscriber('/winner', String, self.callbackPodium, queue_size=1)
         # publishing the robot state: 'wait', 'attack', 'flee' and 'avoid_wall'
-        self.publisher_robot_state = rospy.Publisher('/' + self.name + '/state', String, queue_size=1)
+        self.robot_state_publisher = rospy.Publisher('/' + self.name + '/state_msg', String, queue_size=1)
 
         self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2, queue_size=1)
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
@@ -884,7 +887,7 @@ class Driver:
 
     def chatting(self):
         self.actual_state = self.state
-        if self.actual_state != self.old_state: # if state changed -> print state msg
+        if self.actual_state != self.old_state:
             if self.state.__eq__('wait'):
                 self.state_msg = 'What a deadly bore'
             elif self.state.__eq__('attack'):
@@ -897,7 +900,6 @@ class Driver:
             self.robot_state_message = self.name + ': ' + self.state_msg
             self.robot_state_publisher.publish(self.robot_state_message)
         self.old_state = self.actual_state
-
 
 def main():
     # ------------------------------------------------------
