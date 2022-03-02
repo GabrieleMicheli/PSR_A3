@@ -9,13 +9,13 @@
 
 ## Play description
 
-The play starts with three teams: red, green and blue. Every team has 3 players (ex. **R1**, **R2** and **R3** for the read team). \
-Every team can hunt another player and be also be hunted: 
+The play starts with three teams: **red**, **green** and **blue**. Every team has 3 players (ex. **R1**, **R2** and **R3** for the read team). \
+Every player can hunt another player and be also be hunted: 
 - **Red** hunt **green** and flee from **blue**
 - **Green** hunt **blue** and flee from **red**
 - **Blue** hunt **red** and flee from **green** 
 
-The hunter catch the prey when the robots are in contact (collision). The goal of the play is to get the maximum team score.  
+The hunter catches the prey when the robots are in collision. The goal of the play is to get the maximum team score.  
 
 ###### Arena description
 The game's arena consists of a football field but with a fence around it that prevents robots from escaping their hunters by always moving in the same direction. 
@@ -28,7 +28,7 @@ There are three versions of the arena:
 The last two have walls that turn the arena into a labyrinth.
 
 ###### The referee
-Since it is always necessary to have someone who can be insulted freely to check that the rules of the game are being followed, it is necessary the presence of a referee. The referee basically checks if there's tcollision between a hunter and a prey and deducts points from the prey's team.
+Since it is always necessary to have someone who can be insulted freely to check that the rules of the game are being followed, it is necessary the presence of a referee. The referee basically checks if there's collision between a hunter and a prey and deducts points from the prey's team.
 
 P.S. The referee is given already developed from @miguelriemoliveira.
 
@@ -37,7 +37,13 @@ For further details, see: [Part 14 (TeamHunt)](https://github.com/miguelriemoliv
 ## How to run the program? 
 ###### STEP 1: Create the empty environment
 First of all, launch the empty environment in gazebo, using the command: \
-```roslaunch p_group8_bringup gazebo.launch``` 
+```roslaunch p_group8_bringup gazebo.launch```
+
+It's possible to change the arena scenario, using the argument **world**. \
+For example, the command:
+```roslaunch p_group8_bringup gazebo.launch world:=arena_1```
+create the **th_arena_1** environemnt (see **Arena description** chapter)
+
 ###### STEP 2: Create the multi-robot environment
 To create the multirobot environment, run the command: \
 ```roslaunch p_group8_bringup game_bringup.launch```
@@ -47,6 +53,9 @@ To create a single robot instead of a multiple-robot environment, run the comman
 ###### STEP 3: Robot moving
 To start the hunting and see the robot moving automatically, run the command: \
 ```rosrun p_group8_player driver.py```
+###### STEP 4: 'Activate' the referee
+To start the referee node, run the command: \
+```rosrun th_referee th_referee```
 ## rviz  
 To open the initial **rviz** setup, run the command: \
 ```roslaunch p_group8_bringup visualize.launch```  
