@@ -617,6 +617,7 @@ class Driver:
                 self.color_marker0 = 0
                 self.color_marker1 = 1
 
+
         error = 0.05
         for marker in marker_array.markers:
             if not marker.points == []:
