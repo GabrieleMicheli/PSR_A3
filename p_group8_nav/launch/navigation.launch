@@ -4,7 +4,7 @@
     <node name="map_server" pkg="map_server" type="map_server" args="$(find p_group8_nav)/maps/test.yaml"/>
 
  <!--- Run AMCL -->
-    <include file="$(find amcl)/examples/amcl_diff.launch" />
+    <include file="$(find p_group8_nav)/launch/amcl.launch" />
 
    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
     <rosparam file="$(find p_group8_nav)/params/costmap_common_params.yaml" command="load" ns="global_costmap" />
