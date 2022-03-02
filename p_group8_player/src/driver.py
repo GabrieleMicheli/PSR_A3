@@ -502,13 +502,16 @@ class Driver:
             y = range * math.sin(theta)
             self.lidar_points.append([x, y, z])
 
-
         # Call function to transform real points to pixels
         self.lidarPointsToPixels(self.lidar_points)
 
         real_coord_hunter, real_coord_prey, real_coord_teammate = self.find_coordinates_of_centroid()
-        rospy.loginfo('this is coordinates')
-        rospy.loginfo(real_coord_teammate)
+
+
+        # rospy.loginfo('this is coordinates')
+        # rospy.loginfo(real_coord_teammate)
+
+
         # create point_cloud2 data structure
         self.pc2 = point_cloud2.create_cloud(header, fields, self.lidar_points)
 
@@ -572,7 +575,7 @@ class Driver:
         marker_array = MarkerArray()
         marker = self.createMarker(0)
         marker_array.markers.append(marker)
-        # last_marker = []
+        last_marker = []
 
         for idx, (range1, range2) in enumerate(zip(msgScan.ranges[:-1], msgScan.ranges[1:])):
             if range1 < 0.1 or range2 < 0.1:
@@ -604,14 +607,24 @@ class Driver:
                 self.color_marker0 = 1
                 self.color_marker1 = 0
 
+                # rospy.loginfo('check 2')
+                # rospy.loginfo(last_marker.points.x[0])
+                # rospy.loginfo('check 3')
+                # rospy.loginfo(last_marker.points[0][0])
+                break
+
             elif len(last_marker.points) < 35:
                 self.color_marker0 = 0
                 self.color_marker1 = 1
+
         error = 0.05
         for marker in marker_array.markers:
+            if not marker.points == []:
+                rospy.loginfo('check check')
+                rospy.loginfo(marker.points[0].x)
             # rospy.loginfo('check check')
-            # if not marker.points == []:
-            # rospy.loginfo(marker.points[0][0])
+            # rospy.loginfo(marker.points)
+            # rospy.loginfo(type(marker.points))
 
             if self.min_range_point in marker.points:
                 self.exist_wall = True
@@ -881,7 +894,6 @@ class Driver:
         Closer_lidar_teammate_point.pose.position.y = previous_lidar_teammate_point.pose.position.y
 
         return Closer_lidar_hunter_point, Closer_lidar_prey_point, Closer_lidar_teammate_point
-
 
 
 def main():
