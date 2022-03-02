@@ -11,6 +11,7 @@
     <arg name="y_pos" default="-2.0"/>
     <arg name="z_pos" default="0.0"/>
     <arg name="debug" default="false"/>
+    <arg name="navigation" default="false"/>
 
 
     <group ns="$(arg player_name)">
@@ -37,6 +38,7 @@
         <group if="$(arg driver)">
             <node name="driver" pkg="p_group8_player" type="driver.py" output="screen">
                     <param name="debug" value="$(arg debug)"/>
+                    <param name="navigation" value="$(arg navigation)"/>
             </node>
         </group>
 
@@ -46,5 +48,15 @@
             </include>
         </group>
 
+        <group if="$(arg navigation)">
+<!--             Include navigation.launch file -->
+            <include file="$(find p_group8_nav)/launch/navigation.launch">
+                <arg name="player_name" value="$(arg player_name)"/>
+                <arg name="initial_pose_x"  value="$(arg x_pos)"/>
+                <arg name="initial_pose_y"  value="$(arg y_pos)"/>
+            </include>
+        </group>
+
     </group>
 </launch>
+

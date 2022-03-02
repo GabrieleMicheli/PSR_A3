@@ -9,13 +9,14 @@ from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
-
 from driver_functions import *
+import OptimizationUtils.utilities as opt_utilities
+# import atom_core.atom
 import numpy as np
 import math
 from math import *
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import PointCloud2, PointField, Image, LaserScan
+from sensor_msgs.msg import PointCloud2, PointField, Image, LaserScan, CameraInfo
 from sensor_msgs import point_cloud2
 from colorama import Fore, Back, Style
 from termcolor import cprint
@@ -25,6 +26,7 @@ from operator import itemgetter
 import random
 import tf
 import scipy.spatial.transform as transf
+
 
 class Driver:
 
@@ -65,13 +67,16 @@ class Driver:
         self.min_range_angle = 0
         self.min_range_point = (0, 0, 0)
         self.exist_wall = False
-        self.centroid_hunter_real_coordinates = (0,0)
-        self.centroid_hunter_real_coordinates = (0,0)
-        self.centroid_teammate_real_coordinates = (0,0)
-        self.points_in_camera = []
+        self.centroid_hunter_real_coordinates = [0, 0, 0]
+        self.centroid_prey_real_coordinates = [0, 0, 0]
+        self.centroid_teammate_real_coordinates = [0, 0, 0]
         self.lidar_points = []
         self.rpy = (0.0, 0.45, 0.0)
-        self.XYZ = (0.073 + 0.064,-0.011,0.584 - 0.122) # Camera joint to base_scan transformation
+        self.XYZ = (0.073 + 0.064, -0.011, 0.584 - 0.122)  # Camera joint to base_scan transformation
+        self.camera_info_exist = False
+        self.lidar_pixels = []
+        self.pts_in_image = []
+        self.lidar_pixels_in_image = []
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -121,7 +126,10 @@ class Driver:
         #                                               queue_size=1)
         self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback,
                                                 queue_size=1)
-        self.referee_subscriber = rospy.Subscriber('/winner', String, self.callbackPodium, queue_size=1)
+
+        self.subscriber_camera_info = rospy.Subscriber('/' + self.name + '/camera/rgb/camera_info', CameraInfo,
+                                                       self.getCameraInfoCallback, queue_size=1)
+        # self.referee_subscriber = rospy.Subscriber('/winner', String, self.callbackPodium, queue_size=1)
         # publishing the robot state: 'wait', 'attack', 'flee' and 'avoid_wall'
         self.publisher_robot_state = rospy.Publisher('/' + self.name + '/state', String, queue_size=1)
 
@@ -309,7 +317,8 @@ class Driver:
         self.centroid_teammate = (x_teammate, y_teammate)
 
         self.decisionMaking()
-        self.printScores()
+        # self.printScores()
+        # podium_img = callbackPodium('podium.jpg')
         if self.debug:
             if (x_hunter, y_hunter) != (0, 0):
                 cv2.putText(frame_hunter, 'Hunter!', org=(x_hunter, y_hunter),
@@ -327,8 +336,18 @@ class Driver:
             cv2.putText(hunters_n_preys, str(self.state) + '' + str(self.exist_wall), (0, self.height - 50),
                         fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(0, 0, 0), thickness=5)
 
-            for p in self.points_in_camera:
-                cv2.circle(hunters_n_preys, (p[0], p[1]), 1, (255, 0, 0), -1)
+            for p in self.lidar_pixels_in_image:
+                x_lidar = round(int(p[0]), 2)
+                y_lidar = round(int(p[1]), 2)
+                cv2.circle(hunters_n_preys, (x_lidar, y_lidar), 2, (0, 0, 255), -1)
+
+            # rospy.loginfo('hello')
+            # # rospy.loginfo(self.points_in_camera[0])
+            # rospy.loginfo(self.points_in_camera[0][:, 0][0])
+            # rospy.loginfo(self.points_in_camera[0][:, 0][1])
+            #
+            #
+            # cv2.circle(hunters_n_preys, (x_lidar, y_lidar), 5, (255,0 , 0), -1)
 
             cv2.namedWindow(self.name)
             cv2.imshow(self.name, hunters_n_preys)
@@ -439,7 +458,8 @@ class Driver:
             self.state = 'attack'
 
         # If it detects a prey and a hunter, the player will make a decision based on the distance between both
-        elif self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0) and self.wall_avoiding_angle == 0 and self.exist_wall == False:
+        elif self.centroid_hunter != (0, 0) and self.centroid_prey != (
+                0, 0) and self.wall_avoiding_angle == 0 and self.exist_wall == False:
 
             # Calculates the euclidean distance between the two centroids
             self.distance_hunter_to_prey = sqrt((self.centroid_hunter[0] - self.centroid_prey[0]) ** 2
@@ -481,17 +501,22 @@ class Driver:
         # convert from polar coordinates to cartesian and fill the point cloud
         points = []
         dist_angle = []
-        self.points_in_camera = []
         self.lidar_points = []
         for idx, range in enumerate(msgScan.ranges):
             theta = msgScan.angle_min + msgScan.angle_increment * idx
             x = range * math.cos(theta)
             y = range * math.sin(theta)
-            points.append([x, y, 0])
+            z = 0
+            points.append([x, y, z])
+
+        # Reset the lidar printed points
+        self.lidar_pixels_in_image = []
+        self.lidar_points = points
 
         # Call function to transform real points to pixels
-        self.realpoints_to_pixels(points)
-        # self.find_coordinates_of_centroid()
+        self.lidarPointsToPixels(points)
+
+        self.find_coordinates_of_centroid()
         # create point_cloud2 data structure
         self.pc2 = point_cloud2.create_cloud(header, fields, points)
 
@@ -514,7 +539,6 @@ class Driver:
             x_min_detected = self.min_range_detected * cos(self.min_range_angle)
             y_min_detected = self.min_range_detected * sin(self.min_range_angle)
             self.min_range_point = (x_min_detected, y_min_detected, 0)
-
 
         #     if msgScan.ranges[min_range_detected_idx] < 1.5 and not \
         #             (np.pi / 6 + np.pi / 2 <= min_range_angle <= 3 * np.pi / 2 - np.pi / 6):
@@ -593,10 +617,14 @@ class Driver:
                 self.color_marker1 = 1
         error = 0.05
         for marker in marker_array.markers:
+            # rospy.loginfo('check check')
+            # if not marker.points == []:
+            # rospy.loginfo(marker.points[0][0])
+
             if self.min_range_point in marker.points:
                 self.exist_wall = True
-            elif (self.min_range_point[0] - self.min_range_point[0]*error) < marker.points[0] < (self.min_range_point[0] + self.min_range_point[0]*error) and\
-                    (self.min_range_point[1] - self.min_range_point[1]*error) < marker.points[1] < (self.min_range_point[1] + self.min_range_point[1]*error):
+                # elif (self.min_range_point[0] - self.min_range_point[0]*error) < marker.points[0] < (self.min_range_point[0] + self.min_range_point[0]*error) and\
+                #         (self.min_range_point[1] - self.min_range_point[1]*error) < marker.points[1] < (self.min_range_point[1] + self.min_range_point[1]*error):
                 rospy.loginfo('HEREEEEEEEEEEEEEEEEEE??????????????')
                 self.exist_wall = True
             else:
@@ -714,30 +742,6 @@ class Driver:
         table.align['Team'] = 'l'
         print(table)
 
-    def callbackPodium(self, winner):
-
-        cv2.namedWindow('Winning Team', cv2.WINDOW_NORMAL)
-        img = cv2.imread('podium.jpg', 1)
-        cv2.resizeWindow('Winning Team', 1200, 675)
-
-        first_place = cv2.imread('green.jpg', 1)
-        first_place = cv2.resize(first_place, (160, 90), interpolation=cv2.INTER_AREA)
-
-        second_place = cv2.imread('blue.jpg', 1)
-        second_place = cv2.resize(second_place, (100, 70), interpolation=cv2.INTER_AREA)
-
-        third_place = cv2.imread('red.jpg', 1)
-        third_place = cv2.resize(third_place, (100, 70), interpolation=cv2.INTER_AREA)
-
-        img[100:190, 180:340] = first_place
-        img[130:200, 50:150] = second_place
-        img[140:210, 375:475] = third_place
-        cv2.putText(img, 'Team Hunting Olympics - Aveiro 2022', (80, 310),
-                    fontFace=cv2.FONT_ITALIC, fontScale=0.5, color=(100, 50, 200), thickness=2)
-
-        cv2.imshow('Winning Team', img)
-        cv2.waitKey(0)
-
     def createMarker(self, id):
 
         marker = Marker()
@@ -759,80 +763,111 @@ class Driver:
 
         return marker
 
-    def realpoints_to_pixels(self, realpoints):
+
+    def getCameraInfoCallback(self, camera):
+        try:
+            self.D = camera.D
+            self.K = camera.K
+            self.P = camera.P
+
+            self.camera_info_exist = True
+
+        except(tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+            self.camera_info_exist = False
+            rospy.logerr("Error, no camera parameters")
+
+    def lidarPointsToPixels(self, realpoints):
 
         # Camera Intrinsic matrix
-        K = np.array([[373.2663253873802, 0.0, 640.5], [0.0, 373.2663253873802, 240.5], [0.0, 0.0, 1.0]])
-        # Transformation matrix between base_scan and camera_rgb_optical_frame
-        C_T_L = transf.Rotation.from_rotvec(np.asarray(self.rpy)).as_matrix()
-        rospy.loginfo('C_T_L: ' + str(C_T_L))
-        C_T_L_trans = np.vstack(self.XYZ)
-        rospy.loginfo('C_T_L_trans: ' + str(C_T_L_trans))
-        P = np.dot(K, C_T_L)
-        t = np.dot(K, C_T_L_trans)
+        K = np.asarray(self.K).reshape((3, 3))
 
-        # Cphi = math.cos(phi)
-        # Ctheta = math.cos(theta)
-        # Cpsi = math.cos(psi)
-        # Sphi = math.sin(phi)
-        # Stheta = math.sin(theta)
-        # Spsi = math.sin(psi)
-        # R_T_C = np.array(
-        #     [[Cphi * Ctheta, Cphi * Spsi * Stheta - Cpsi * Sphi, Spsi * Sphi + Cphi * Cpsi * Stheta, 0.064 + 0.073 + 0.003],
-        #      [Ctheta * Sphi, Cphi * Cpsi + Sphi * Spsi * Stheta, Sphi * Cpsi * Stheta - Spsi * Cphi, 0],
-        #      [-Stheta, Ctheta * Spsi, Cpsi * Ctheta, 0.584 + 0.009], [0, 0, 0, 1]])
+        # Camera Extrinsic Parameters from:
+        # "rosrun tf tf_echo R1/camera_rgb_optical_frame R1/base_scan"
+        RPY = (3.140, -1.122, -1.569)
+        XYZ = (0.000, 0.485, 0.074)
 
-        # R_T_L = np.array([[1, 0, 0, -0.064], [0, 1, 0, 0], [0, 0, 1, 0.122], [0, 0, 0, 1]])
-        # L_T_C = np.linalg.inv(R_T_L) @ R_T_C  # Extrinsic matrix
-        # C_T_L = np.linalg.inv(L_T_C)
+        rotation_matrix = np.array([[np.cos(RPY[1]) * np.cos(RPY[2]),
+                       np.sin(RPY[0]) * np.sin(RPY[1]) * np.cos(RPY[2]) - np.sin(RPY[2]) * np.cos(RPY[0]),
+                       np.sin(RPY[1]) * np.cos(RPY[0]) * np.cos(RPY[2]) + np.sin(RPY[0]) * np.sin(RPY[2])],
+                      [np.sin(RPY[2]) * np.cos(RPY[1]),
+                       np.sin(RPY[0]) * np.sin(RPY[1]) * np.sin(RPY[2]) + np.cos(RPY[0]) * np.cos(RPY[2]),
+                       np.sin(RPY[1]) * np.sin(RPY[2]) * np.cos(RPY[0]) - np.sin(RPY[0]) * np.cos(RPY[2])],
+                      [-np.sin(RPY[1]), np.sin(RPY[0]) * np.cos(RPY[1]), np.cos(RPY[0]) * np.cos(RPY[1])]])
+        #
+        translation_matrix = np.vstack(XYZ)
 
+        L_t_C = np.concatenate((rotation_matrix, translation_matrix), axis=1)
+        rospy.loginfo(L_t_C)
+
+        array_points_in_camera = []
         for point in realpoints:
-            p = np.vstack((point[0], point[1], point[2]))
-            self.lidar_points.append(p)
-            # new_camera_point = K @ C_T_L @ new_point        # @ is the same as np.dot()
+            p = np.vstack((point[0], point[1], 0, 1))
+            # self.lidar_points.append(p)
+            # new_camera_point = K @ C_T_L @ new_point
+            points_in_camera = np.dot(L_t_C, p)
+            points_in_camera = np.dot(K, points_in_camera)
+            array_points_in_camera.append(points_in_camera)
 
-            if not math.isinf(p[0]) and not math.isinf(p[1]):
-                 new_camera_point = np.dot(P, p) + t
+            if not math.isnan(points_in_camera[0]) and not math.isnan(points_in_camera[1]):
+                lidar_pixel = [points_in_camera[0] / points_in_camera[2], points_in_camera[1] / points_in_camera[2],
+                               points_in_camera[2]]
+
+                if 0 < lidar_pixel[0] < self.width and 0 < lidar_pixel[1] < self.height:
+                    self.lidar_pixels_in_image.append(lidar_pixel)
+                self.lidar_pixels.append(lidar_pixel)
             else:
-                continue
-
-            if new_camera_point[0] < 0 or new_camera_point[1] < 0:
-                rospy.loginfo('Negative value')
-                continue
-            self.points_in_camera.append(new_camera_point)
-            rospy.loginfo('lidar point x in camera: ' + str(new_camera_point[0]))
-            rospy.loginfo('lidar point x in camera: ' + str(new_camera_point[1]))
+                self.lidar_pixels.append([-1, -1, -1])
 
     def find_coordinates_of_centroid(self):
         dist_hunter_previous = 1000
         dist_prey_previous = 1000
         dist_teammate_previous = 1000
-        ind_hunter = 0
-        ind_prey = 0
-        ind_teammate = 0
+        idx_hunter = 0
+        idx_prey = 0
+        idx_teammate = 0
 
-        for ind in range(0, len(self.points_in_camera)):
+        # Calculate distance from the lidar points to the centroid
+        for idx in range(0, len(self.lidar_pixels_in_image)):
+            point = (self.lidar_pixels_in_image[idx][0], self.lidar_pixels_in_image[idx][1])
 
-            # Calculate distance from the lidar points to the centroids
-            point = (self.points_in_camera[ind][0], self.points_in_camera[ind][1])  # (x, y) pixel coordinates of lidar point
-            dist_hunter = math.sqrt((point[0] - self.centroid_hunter[0]) ** 2 + (point[1] - self.centroid_hunter[1]) ** 2)
+            dist_hunter = math.sqrt(
+                (point[0] - self.centroid_hunter[0]) ** 2 + (point[1] - self.centroid_hunter[1]) ** 2)
+
             dist_prey = math.sqrt((point[0] - self.centroid_prey[0]) ** 2 + (point[1] - self.centroid_prey[1]) ** 2)
-            dist_teammate = math.sqrt((point[0] - self.centroid_teammate[0]) ** 2 + (point[1] - self.centroid_teammate[1]) ** 2)
+
+            dist_teammate = math.sqrt(
+                (point[0] - self.centroid_teammate[0]) ** 2 + (point[1] - self.centroid_teammate[1]) ** 2)
 
             # Check the closest point (shortest distance)
             if dist_hunter < dist_hunter_previous:
                 dist_hunter_previous = dist_hunter
-                ind_hunter = ind
+                idx_hunter = idx
             if dist_prey < dist_prey_previous:
                 dist_prey_previous = dist_prey
-                ind_prey = ind
+                idx_prey = idx
             if dist_teammate < dist_teammate_previous:
                 dist_teammate_previous = dist_teammate
-                ind_teammate = ind
+                idx_teammate = idx
 
-        self.centroid_hunter_real_coordinates = (self.lidar_points[ind_hunter][0], self.lidar_points[ind_hunter][1])
-        self.centroid_prey_real_coordinates = (self.lidar_points[ind_prey][0], self.lidar_points[ind_prey][1])
-        self.centroid_teammate_real_coordinates = (self.lidar_points[ind_teammate][0], self.lidar_points[ind_teammate][1])
+        idx_lidar_hunter = 0
+        idx_lidar_prey = 0
+        idx_lidar_teammate = 0
+        for i in range(0, len(self.lidar_pixels)):
+            if self.lidar_pixels_in_image[idx_hunter] == self.lidar_pixels[i]:
+                idx_lidar_hunter = i
+            if self.lidar_pixels_in_image[idx_prey] == self.lidar_pixels[i]:
+                idx_lidar_prey = i
+            if self.lidar_pixels_in_image[idx_teammate] == self.lidar_pixels[i]:
+                idx_lidar_teammate = i
+
+        self.centroid_hunter_real_coordinates = self.lidar_points[idx_lidar_hunter]
+        self.centroid_prey_real_coordinates = self.lidar_points[idx_lidar_prey]
+        self.centroid_teammate_real_coordinates = self.lidar_points[idx_lidar_teammate]
+
+        rospy.loginfo('this is real coordinates')
+        rospy.loginfo(self.centroid_hunter_real_coordinates)
+
+
 
 def main():
     # ------------------------------------------------------
