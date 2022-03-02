@@ -882,6 +882,21 @@ class Driver:
 
         return Closer_lidar_hunter_point, Closer_lidar_prey_point, Closer_lidar_teammate_point
 
+    def chatting(self):
+        self.actual_state = self.state
+        if self.actual_state != self.old_state: # if state changed -> print state msg
+            if self.state.__eq__('wait'):
+                self.state_msg = 'What a deadly bore'
+            elif self.state.__eq__('attack'):
+                self.state_msg = 'I am very hungry'
+            elif self.state.__eq__('flee'):
+                self.state_msg = 'Oh no, I have to run'
+            else:
+                self.state_msg = 'Walls everywhere in this game'
+            # print(self.name + self.state_msg) # print state msg
+            self.robot_state_message = self.name + ': ' + self.state_msg
+            self.robot_state_publisher.publish(self.robot_state_message)
+        self.old_state = self.actual_state
 
 
 def main():
@@ -898,6 +913,7 @@ def main():
     # ------------------------------------------------------
     while not rospy.is_shutdown():
         driver.sendCommandCallback()
+        driver.chatting()
         rate.sleep()
 
 
