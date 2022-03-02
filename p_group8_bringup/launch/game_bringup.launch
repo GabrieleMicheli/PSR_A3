@@ -41,6 +41,7 @@
         <arg name="x_pos" value="$(arg R1_x_pos)"/>
         <arg name="y_pos" value="$(arg R1_y_pos)"/>
         <arg name="debug" value="true"/>
+        <arg name="navigation" value="false"/>
     </include>
 
     <!-- Creating R2 (red2) robot -->
@@ -50,6 +51,7 @@
         <arg name="x_pos" value="$(arg R2_x_pos)"/>
         <arg name="y_pos" value="$(arg R2_y_pos)"/>
         <arg name="debug" value="$(arg debug)"/>
+        <arg name="navigation" value="false"/>
     </include>
 
     <!-- Creating R3 (red3) robot -->
@@ -59,6 +61,7 @@
         <arg name="x_pos" value="$(arg R3_x_pos)"/>
         <arg name="y_pos" value="$(arg R3_y_pos)"/>
         <arg name="debug" value="$(arg debug)"/>
+        <arg name="navigation" value="true"/>
     </include>
 
     <include file="$(find p_group8_bringup)/launch/multi_map_merge.launch">
@@ -84,6 +87,7 @@
         <arg name="x_pos" default="$(arg G1_x_pos)"/>
         <arg name="y_pos" default="$(arg G1_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
+        <arg name="navigation" value="false"/>
     </include>
 
     <!-- Creating G2 (green2) robot -->
@@ -93,6 +97,7 @@
         <arg name="x_pos" default="$(arg G2_x_pos)"/>
         <arg name="y_pos" default="$(arg G2_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
+        <arg name="navigation" value="false"/>
     </include>
 
     <!-- Creating G3 (green3) robot -->
@@ -102,6 +107,7 @@
         <arg name="x_pos" default="$(arg G3_x_pos)"/>
         <arg name="y_pos" default="$(arg G3_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
+        <arg name="navigation" value="true"/>
     </include>
 
     <include file="$(find p_group8_bringup)/launch/multi_map_merge.launch">
@@ -127,6 +133,7 @@
         <arg name="x_pos" default="$(arg B1_x_pos)"/>
         <arg name="y_pos" default="$(arg B1_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
+        <arg name="navigation" value="false"/>
     </include>
 
     <!-- Creating B2 (blue2) robot -->
@@ -136,6 +143,7 @@
         <arg name="x_pos" default="$(arg B2_x_pos)"/>
         <arg name="y_pos" default="$(arg B2_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
+        <arg name="navigation" value="false"/>
     </include>
 
     <!-- Creating B3 (blue3) robot -->
@@ -145,6 +153,7 @@
         <arg name="x_pos" default="$(arg B3_x_pos)"/>
         <arg name="y_pos" default="$(arg B3_y_pos)"/>
         <arg name="debug" default="$(arg debug)"/>
+        <arg name="navigation" value="true"/>
     </include>
 
     <include file="$(find p_group8_bringup)/launch/multi_map_merge.launch">

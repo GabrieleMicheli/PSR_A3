@@ -5,15 +5,7 @@
     <!-- Including another launch file -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
 
-        <!-- TODO EXTRA: Option to change the arena #5 -->
-        <!-- Choose the arena at the beginning of the gazebo spawn -->
         <arg name="world_name" value="$(find th_description)/worlds/th_$(arg world).world"/>
-<!--        <arg name="world_name" value="$(find th_description)/worlds/th_arena_1.world"/>-->
-<!--        <arg name="world_name" value="$(find th_description)/worlds/th_arena_2.world"/>-->
-<!--        <arg name="world_name" value="$(find th_description)/worlds/th_arena_3.world"/>-->
-
-        <!-- TODO: Use this track whit teleop (see: Optimize teleop-key #4) -->
-<!--        <arg name="world_name" value="$(find psr_fnr_class)/worlds/fnr.world"/>-->
 
         <arg name="paused" value="false"/>
         <arg name="use_sim_time" value="true"/>

@@ -71,13 +71,14 @@ class Driver:
         self.points_in_camera = []
         self.lidar_points = []
         self.rpy = (0.0, 0.45, 0.0)
-        self.XYZ = (0.073 + 0.064,-0.011,0.584 - 0.122) # Camera joint to base_scan transformation
+        self.XYZ = (0.073 + 0.064, -0.011, 0.584 - 0.122) # Camera joint to base_scan transformation
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
         green_players_list = rospy.get_param('/green_players')
         blue_players_list = rospy.get_param('/blue_players')
         self.debug = rospy.get_param('~debug')
+        self.navigation = rospy.get_param("~navigation")
 
         # Defining name of the robot, team and respective info
         self.name = rospy.get_name()
@@ -213,31 +214,32 @@ class Driver:
             angle = 1
             speed = 1
 
-        self.decisionMaking()
-        self.takeAction()
-        twist = Twist()
+        if not self.navigation:
+            self.decisionMaking()
+            self.takeAction()
+            twist = Twist()
 
-        if self.state == 'wait':
-            twist.linear.x = self.linear_vel_to_wait
-            twist.angular.z = self.angular_vel_to_wait
-        elif self.state == 'attack':
-            twist.linear.x = self.linear_vel_to_attack
-            twist.angular.z = self.angular_vel_to_attack
-        elif self.state == 'flee':
-            twist.linear.x = self.linear_vel_to_flee
-            twist.angular.z = self.angular_vel_to_flee
-        elif self.state == 'avoid_wall':
-            twist.linear.x = self.linear_vel_to_avoid_wall
-            twist.angular.z = self.angular_vel_to_avoid_wall
-        # elif self.state == 'avoid_teammate':
-        #     twist.linear.x = self.linear_vel_to_avoid_teammate
-        #     twist.angular.z = self.angular_vel_to_avoid_teammate
+            if self.state == 'wait':
+                twist.linear.x = self.linear_vel_to_wait
+                twist.angular.z = self.angular_vel_to_wait
+            elif self.state == 'attack':
+                twist.linear.x = self.linear_vel_to_attack
+                twist.angular.z = self.angular_vel_to_attack
+            elif self.state == 'flee':
+                twist.linear.x = self.linear_vel_to_flee
+                twist.angular.z = self.angular_vel_to_flee
+            elif self.state == 'avoid_wall':
+                twist.linear.x = self.linear_vel_to_avoid_wall
+                twist.angular.z = self.angular_vel_to_avoid_wall
+            # elif self.state == 'avoid_teammate':
+            #     twist.linear.x = self.linear_vel_to_avoid_teammate
+            #     twist.angular.z = self.angular_vel_to_avoid_teammate
 
-        elif self.goal_active:
-            twist.linear.x = speed
-            twist.angular.z = angle
+            elif self.goal_active:
+                twist.linear.x = speed
+                twist.angular.z = angle
 
-        self.publisher_command.publish(twist)
+            self.publisher_command.publish(twist)
 
     def computeDistanceToGoal(self, goal):
         goal_present_time = copy.deepcopy(goal)

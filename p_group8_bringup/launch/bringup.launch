@@ -11,6 +11,7 @@
     <arg name="y_pos" default="-2.0"/>
     <arg name="z_pos" default="0.0"/>
     <arg name="debug" default="false"/>
+    <arg name="navigation" default="false"/>
 
 
     <group ns="$(arg player_name)">
@@ -37,6 +38,7 @@
         <group if="$(arg driver)">
             <node name="driver" pkg="p_group8_player" type="driver.py" output="screen">
                     <param name="debug" value="$(arg debug)"/>
+                    <param name="navigation" value="$(arg navigation)"/>
             </node>
         </group>
 
