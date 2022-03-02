@@ -3,9 +3,10 @@
     <arg name="player_name" default="p_randomName"/>
     <arg name="initial_pose_x"  default="0.0"/>
     <arg name="initial_pose_y"  default="-2.0"/>
+    <arg name="world" default="arena_1"/>
 
  <!-- Run the map server -->
-    <node name="map_server" pkg="map_server" type="map_server" args="arena_1.yaml">
+    <node name="map_server" pkg="map_server" type="map_server" args="$(find p_group8_nav)/maps/$(arg world).yaml">
         <remap from="map" to="full_map"/>
     </node>
 
