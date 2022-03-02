@@ -67,12 +67,7 @@ class Driver:
         self.min_range_angle = 0
         self.min_range_point = (0, 0, 0)
         self.exist_wall = False
-        self.centroid_hunter_real_coordinates = [0, 0, 0]
-        self.centroid_prey_real_coordinates = [0, 0, 0]
-        self.centroid_teammate_real_coordinates = [0, 0, 0]
         self.lidar_points = []
-        self.rpy = (0.0, 0.45, 0.0)
-        self.XYZ = (0.073 + 0.064, -0.011, 0.584 - 0.122)  # Camera joint to base_scan transformation
         self.camera_info_exist = False
         self.lidar_pixels = []
         self.pts_in_image = []
@@ -499,26 +494,25 @@ class Driver:
                   PointField('z', 8, PointField.FLOAT32, 1)]
 
         # convert from polar coordinates to cartesian and fill the point cloud
-        points = []
-        dist_angle = []
         self.lidar_points = []
+        z = 0
         for idx, range in enumerate(msgScan.ranges):
             theta = msgScan.angle_min + msgScan.angle_increment * idx
             x = range * math.cos(theta)
             y = range * math.sin(theta)
-            z = 0
-            points.append([x, y, z])
+            self.lidar_points.append([x, y, z])
 
         # Reset the lidar printed points
         self.lidar_pixels_in_image = []
-        self.lidar_points = points
 
         # Call function to transform real points to pixels
-        self.lidarPointsToPixels(points)
+        self.lidarPointsToPixels(self.lidar_points)
 
-        self.find_coordinates_of_centroid()
+        real_coord_hunter, real_coord_prey, real_coord_teammate = self.find_coordinates_of_centroid()
+        rospy.loginfo('this is coordinates')
+        rospy.loginfo(real_coord_hunter)
         # create point_cloud2 data structure
-        self.pc2 = point_cloud2.create_cloud(header, fields, points)
+        self.pc2 = point_cloud2.create_cloud(header, fields, self.lidar_points)
 
         # publish (will automatically convert from point_cloud2 to Point cloud2 message)
         self.publisher_laser_distance.publish(self.pc2)
@@ -763,7 +757,6 @@ class Driver:
 
         return marker
 
-
     def getCameraInfoCallback(self, camera):
         try:
             self.D = camera.D
@@ -787,26 +780,25 @@ class Driver:
         XYZ = (0.000, 0.485, 0.074)
 
         rotation_matrix = np.array([[np.cos(RPY[1]) * np.cos(RPY[2]),
-                       np.sin(RPY[0]) * np.sin(RPY[1]) * np.cos(RPY[2]) - np.sin(RPY[2]) * np.cos(RPY[0]),
-                       np.sin(RPY[1]) * np.cos(RPY[0]) * np.cos(RPY[2]) + np.sin(RPY[0]) * np.sin(RPY[2])],
-                      [np.sin(RPY[2]) * np.cos(RPY[1]),
-                       np.sin(RPY[0]) * np.sin(RPY[1]) * np.sin(RPY[2]) + np.cos(RPY[0]) * np.cos(RPY[2]),
-                       np.sin(RPY[1]) * np.sin(RPY[2]) * np.cos(RPY[0]) - np.sin(RPY[0]) * np.cos(RPY[2])],
-                      [-np.sin(RPY[1]), np.sin(RPY[0]) * np.cos(RPY[1]), np.cos(RPY[0]) * np.cos(RPY[1])]])
+                                     np.sin(RPY[0]) * np.sin(RPY[1]) * np.cos(RPY[2]) - np.sin(RPY[2]) * np.cos(RPY[0]),
+                                     np.sin(RPY[1]) * np.cos(RPY[0]) * np.cos(RPY[2]) + np.sin(RPY[0]) * np.sin(
+                                         RPY[2])],
+                                    [np.sin(RPY[2]) * np.cos(RPY[1]),
+                                     np.sin(RPY[0]) * np.sin(RPY[1]) * np.sin(RPY[2]) + np.cos(RPY[0]) * np.cos(RPY[2]),
+                                     np.sin(RPY[1]) * np.sin(RPY[2]) * np.cos(RPY[0]) - np.sin(RPY[0]) * np.cos(
+                                         RPY[2])],
+                                    [-np.sin(RPY[1]), np.sin(RPY[0]) * np.cos(RPY[1]),
+                                     np.cos(RPY[0]) * np.cos(RPY[1])]])
         #
         translation_matrix = np.vstack(XYZ)
 
         L_t_C = np.concatenate((rotation_matrix, translation_matrix), axis=1)
         rospy.loginfo(L_t_C)
 
-        array_points_in_camera = []
         for point in realpoints:
             p = np.vstack((point[0], point[1], 0, 1))
-            # self.lidar_points.append(p)
-            # new_camera_point = K @ C_T_L @ new_point
             points_in_camera = np.dot(L_t_C, p)
             points_in_camera = np.dot(K, points_in_camera)
-            array_points_in_camera.append(points_in_camera)
 
             if not math.isnan(points_in_camera[0]) and not math.isnan(points_in_camera[1]):
                 lidar_pixel = [points_in_camera[0] / points_in_camera[2], points_in_camera[1] / points_in_camera[2],
@@ -816,57 +808,124 @@ class Driver:
                     self.lidar_pixels_in_image.append(lidar_pixel)
                 self.lidar_pixels.append(lidar_pixel)
             else:
-                self.lidar_pixels.append([-1, -1, -1])
+                self.lidar_pixels.append([-1000, -1000, -1000])
 
     def find_coordinates_of_centroid(self):
+
+        # Create pose stamped variables
+        previous_lidar_hunter_point = PoseStamped()
+        previous_lidar_prey_point = PoseStamped()
+        previous_lidar_teammate_point = PoseStamped()
+
+        Closer_lidar_hunter_point = PoseStamped()
+        Closer_lidar_prey_point = PoseStamped()
+        Closer_lidar_teammate_point = PoseStamped()
+
+        # Initialize variables
+        Closer_lidar_hunter_point.pose.position.x = math.inf
+        Closer_lidar_hunter_point.pose.position.y = math.inf
+
+        Closer_lidar_prey_point.pose.position.x = math.inf
+        Closer_lidar_prey_point.pose.position.y = math.inf
+
+        Closer_lidar_teammate_point.pose.position.x = math.inf
+        Closer_lidar_teammate_point.pose.position.y = math.inf
+
+        previous_lidar_hunter_point.pose.position.x = math.inf
+        previous_lidar_hunter_point.pose.position.y = math.inf
+
+        previous_lidar_prey_point.pose.position.x = math.inf
+        previous_lidar_prey_point.pose.position.y = math.inf
+
+        previous_lidar_teammate_point.pose.position.x = math.inf
+        previous_lidar_teammate_point.pose.position.y = math.inf
+
         dist_hunter_previous = 1000
         dist_prey_previous = 1000
         dist_teammate_previous = 1000
-        idx_hunter = 0
-        idx_prey = 0
-        idx_teammate = 0
+        if self.centroid_hunter != (0, 0):
+            for idx_hunter, pixel_hunter in enumerate(self.lidar_pixels):
+                dist_hunter = math.sqrt((pixel_hunter[0] - self.centroid_hunter[0]) ** 2 + (pixel_hunter[1] -self.centroid_hunter[1]) ** 2)
+                if dist_hunter < dist_hunter_previous:
+                    dist_hunter_previous = dist_hunter
+                    previous_lidar_hunter_point.pose.position.x = self.lidar_points[idx_hunter][0]
+                    previous_lidar_hunter_point.pose.position.y = self.lidar_points[idx_hunter][1]
 
-        # Calculate distance from the lidar points to the centroid
-        for idx in range(0, len(self.lidar_pixels_in_image)):
-            point = (self.lidar_pixels_in_image[idx][0], self.lidar_pixels_in_image[idx][1])
+        if self.centroid_prey != (0, 0):
+            for idx_prey, pixel_prey in enumerate(self.lidar_pixels):
+                dist_prey = math.sqrt((pixel_prey[0] - self.centroid_prey[0]) ** 2 + (
+                            pixel_prey[1] - self.centroid_prey[1]) ** 2)
+                if dist_prey < dist_prey_previous:
+                    dist_prey_previous = dist_prey
+                    previous_lidar_prey_point.pose.position.x = self.lidar_points[idx_prey][0]
+                    previous_lidar_prey_point.pose.position.y = self.lidar_points[idx_prey][1]
 
-            dist_hunter = math.sqrt(
-                (point[0] - self.centroid_hunter[0]) ** 2 + (point[1] - self.centroid_hunter[1]) ** 2)
+        if self.centroid_teammate != (0, 0):
+            for idx_teammate, pixel_teammate in enumerate(self.lidar_pixels):
+                dist_teammate = math.sqrt((pixel_teammate[0] - self.centroid_teammate[0]) ** 2 + (
+                            pixel_teammate[1] - self.centroid_teammate[1]) ** 2)
+                if dist_teammate < dist_teammate_previous:
+                    dist_teammate_previous = dist_teammate
+                    previous_lidar_teammate_point.pose.position.x = self.lidar_points[idx_teammate][0]
+                    previous_lidar_teammate_point.pose.position.y = self.lidar_points[idx_teammate][1]
 
-            dist_prey = math.sqrt((point[0] - self.centroid_prey[0]) ** 2 + (point[1] - self.centroid_prey[1]) ** 2)
+        Closer_lidar_hunter_point.pose.position.x = previous_lidar_hunter_point.pose.position.x
+        Closer_lidar_hunter_point.pose.position.y = previous_lidar_hunter_point.pose.position.y
 
-            dist_teammate = math.sqrt(
-                (point[0] - self.centroid_teammate[0]) ** 2 + (point[1] - self.centroid_teammate[1]) ** 2)
+        Closer_lidar_prey_point.pose.position.x = previous_lidar_prey_point.pose.position.x
+        Closer_lidar_prey_point.pose.position.y = previous_lidar_prey_point.pose.position.y
 
-            # Check the closest point (shortest distance)
-            if dist_hunter < dist_hunter_previous:
-                dist_hunter_previous = dist_hunter
-                idx_hunter = idx
-            if dist_prey < dist_prey_previous:
-                dist_prey_previous = dist_prey
-                idx_prey = idx
-            if dist_teammate < dist_teammate_previous:
-                dist_teammate_previous = dist_teammate
-                idx_teammate = idx
+        Closer_lidar_teammate_point.pose.position.x = previous_lidar_teammate_point.pose.position.x
+        Closer_lidar_teammate_point.pose.position.y = previous_lidar_teammate_point.pose.position.y
+        return Closer_lidar_hunter_point, Closer_lidar_prey_point, Closer_lidar_teammate_point
 
-        idx_lidar_hunter = 0
-        idx_lidar_prey = 0
-        idx_lidar_teammate = 0
-        for i in range(0, len(self.lidar_pixels)):
-            if self.lidar_pixels_in_image[idx_hunter] == self.lidar_pixels[i]:
-                idx_lidar_hunter = i
-            if self.lidar_pixels_in_image[idx_prey] == self.lidar_pixels[i]:
-                idx_lidar_prey = i
-            if self.lidar_pixels_in_image[idx_teammate] == self.lidar_pixels[i]:
-                idx_lidar_teammate = i
-
-        self.centroid_hunter_real_coordinates = self.lidar_points[idx_lidar_hunter]
-        self.centroid_prey_real_coordinates = self.lidar_points[idx_lidar_prey]
-        self.centroid_teammate_real_coordinates = self.lidar_points[idx_lidar_teammate]
-
-        rospy.loginfo('this is real coordinates')
-        rospy.loginfo(self.centroid_hunter_real_coordinates)
-
+        # dist_hunter_previous = 1000
+        # dist_prey_previous = 1000
+        # dist_teammate_previous = 1000
+        # idx_hunter = 0
+        # idx_prey = 0
+        # idx_teammate = 0
+        #
+        # # Calculate distance from the lidar points to the centroid
+        # for idx in range(0, len(self.lidar_pixels_in_image)):
+        #     point = (self.lidar_pixels_in_image[idx][0], self.lidar_pixels_in_image[idx][1])
+        #
+        #     dist_hunter = math.sqrt(
+        #         (point[0] - self.centroid_hunter[0]) ** 2 + (point[1] - self.centroid_hunter[1]) ** 2)
+        #
+        #     dist_prey = math.sqrt((point[0] - self.centroid_prey[0]) ** 2 + (point[1] - self.centroid_prey[1]) ** 2)
+        #
+        #     dist_teammate = math.sqrt(
+        #         (point[0] - self.centroid_teammate[0]) ** 2 + (point[1] - self.centroid_teammate[1]) ** 2)
+        #
+        #     # Check the closest point (shortest distance)
+        #     if dist_hunter < dist_hunter_previous:
+        #         dist_hunter_previous = dist_hunter
+        #         idx_hunter = idx
+        #     if dist_prey < dist_prey_previous:
+        #         dist_prey_previous = dist_prey
+        #         idx_prey = idx
+        #     if dist_teammate < dist_teammate_previous:
+        #         dist_teammate_previous = dist_teammate
+        #         idx_teammate = idx
+        #
+        # idx_lidar_hunter = 0
+        # idx_lidar_prey = 0
+        # idx_lidar_teammate = 0
+        # for i in range(0, len(self.lidar_pixels)):
+        #     if self.lidar_pixels_in_image[idx_hunter] == self.lidar_pixels[i]:
+        #         idx_lidar_hunter = i
+        #     if self.lidar_pixels_in_image[idx_prey] == self.lidar_pixels[i]:
+        #         idx_lidar_prey = i
+        #     if self.lidar_pixels_in_image[idx_teammate] == self.lidar_pixels[i]:
+        #         idx_lidar_teammate = i
+        #
+        # self.centroid_hunter_real_coordinates = self.lidar_points[idx_lidar_hunter]
+        # self.centroid_prey_real_coordinates = self.lidar_points[idx_lidar_prey]
+        # self.centroid_teammate_real_coordinates = self.lidar_points[idx_lidar_teammate]
+        #
+        # rospy.loginfo('this is real coordinates')
+        # rospy.loginfo(self.centroid_hunter_real_coordinates)
 
 
 def main():
