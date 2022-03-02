@@ -1,7 +1,9 @@
 <launch>
 
+    <arg name="player_name" default="p_randomName"/>
+
  <!-- Run the map server -->
-    <node name="map_server" pkg="map_server" type="map_server" args="$(find p_group8_nav)/maps/test.yaml"/>
+    <node name="map_server" pkg="map_server" type="map_server" args="$(find p_group8_nav)/maps/arena1.yaml"/>
 
  <!--- Run AMCL -->
     <include file="$(find p_group8_nav)/launch/amcl.launch" />
@@ -12,7 +14,8 @@
     <rosparam file="$(find p_group8_nav)/params/local_costmap_params.yaml" command="load" />
     <rosparam file="$(find p_group8_nav)/params/global_costmap_params.yaml" command="load" />
     <rosparam file="$(find p_group8_nav)/params/base_local_planner_params.yaml" command="load" />
-   <rosparam file="$(find p_group8_nav)/params/global_planner_params.yaml" command="load" />
+    <rosparam file="$(find p_group8_nav)/params/global_planner_params.yaml" command="load" />
+    <remap from="cmd_vel" to="$(arg player_name)/cmd_vel"/>
  </node>
 
 </launch>

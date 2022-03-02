@@ -1,0 +1,8 @@
+image: /home/nel/catkin_ws/src/PSR/A3/PSR_A3/p_group8_nav/maps/arena1.pgm
+resolution: 0.050000
+origin: [-100.000000, -100.000000, 0.000000]
+#origin: [0.000000, 0.000000, 0.000000]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
+
