@@ -5,7 +5,7 @@
     <arg name="initial_pose_y"  default="-2.0"/>
 
  <!-- Run the map server -->
-    <node name="map_server" pkg="map_server" type="map_server" args="$(find p_group8_nav)/maps/arena1.yaml">
+    <node name="map_server" pkg="map_server" type="map_server" args="arena_1.yaml">
         <remap from="map" to="full_map"/>
     </node>
 
