@@ -1,21 +1,30 @@
 <launch>
 
     <arg name="player_name" default="p_randomName"/>
+    <arg name="initial_pose_x"  default="0.0"/>
+    <arg name="initial_pose_y"  default="-2.0"/>
 
  <!-- Run the map server -->
-    <node name="map_server" pkg="map_server" type="map_server" args="$(find p_group8_nav)/maps/arena1.yaml"/>
+    <node name="map_server" pkg="map_server" type="map_server" args="$(find p_group8_nav)/maps/arena1.yaml">
+        <remap from="map" to="full_map"/>
+    </node>
 
  <!--- Run AMCL -->
-    <include file="$(find p_group8_nav)/launch/amcl.launch" />
+    <include file="$(find p_group8_nav)/launch/amcl.launch">
+        <arg name="player_name" value="$(arg player_name)"/>
+        <arg name="initial_pose_x"  value="$(arg initial_pose_x)"/>
+        <arg name="initial_pose_y"  value="$(arg initial_pose_y)"/>
+    </include>
 
    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
-    <rosparam file="$(find p_group8_nav)/params/costmap_common_params.yaml" command="load" ns="global_costmap" />
-    <rosparam file="$(find p_group8_nav)/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
-    <rosparam file="$(find p_group8_nav)/params/local_costmap_params.yaml" command="load" />
-    <rosparam file="$(find p_group8_nav)/params/global_costmap_params.yaml" command="load" />
+    <rosparam file="$(find p_group8_nav)/params/$(arg player_name)/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find p_group8_nav)/params/$(arg player_name)/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find p_group8_nav)/params/$(arg player_name)/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find p_group8_nav)/params/$(arg player_name)/global_costmap_params.yaml" command="load" />
     <rosparam file="$(find p_group8_nav)/params/base_local_planner_params.yaml" command="load" />
     <rosparam file="$(find p_group8_nav)/params/global_planner_params.yaml" command="load" />
-    <remap from="cmd_vel" to="$(arg player_name)/cmd_vel"/>
+   <remap from="map" to="full_map"/>
+<!--    <remap from="cmd_vel" to="$(arg player_name)/cmd_vel"/>-->
  </node>
 
 </launch>

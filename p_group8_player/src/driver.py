@@ -799,11 +799,11 @@ class Driver:
                 continue
 
             if new_camera_point[0] < 0 or new_camera_point[1] < 0:
-                rospy.loginfo('Negative value')
+                # rospy.loginfo('Negative value')
                 continue
             self.points_in_camera.append(new_camera_point)
-            rospy.loginfo('lidar point x in camera: ' + str(new_camera_point[0]))
-            rospy.loginfo('lidar point x in camera: ' + str(new_camera_point[1]))
+            # rospy.loginfo('lidar point x in camera: ' + str(new_camera_point[0]))
+            # rospy.loginfo('lidar point x in camera: ' + str(new_camera_point[1]))
 
     def find_coordinates_of_centroid(self):
         dist_hunter_previous = 1000

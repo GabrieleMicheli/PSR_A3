@@ -48,5 +48,15 @@
             </include>
         </group>
 
+        <group if="$(arg navigation)">
+<!--             Include navigation.launch file -->
+            <include file="$(find p_group8_nav)/launch/navigation.launch">
+                <arg name="player_name" value="$(arg player_name)"/>
+                <arg name="initial_pose_x"  value="$(arg x_pos)"/>
+                <arg name="initial_pose_y"  value="$(arg y_pos)"/>
+            </include>
+        </group>
+
     </group>
 </launch>
+

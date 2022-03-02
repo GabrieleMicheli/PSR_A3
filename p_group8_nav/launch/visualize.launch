@@ -1,0 +1,11 @@
+<!-- Launch rviz: loading configuration file -->
+<launch>
+
+    <arg name="player_name" default="R3"/>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="--display-config $(find p_group8_nav)/config/$(arg player_name).rviz" required="false"/>
+    <node name="rviz_converter" pkg="p_group8_nav" type="rviz_converter.py">
+        <param name="player_name" value="$(arg player_name)"/>
+    </node>
+
+</launch>

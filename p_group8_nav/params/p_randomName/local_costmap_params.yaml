@@ -17,7 +17,7 @@ local_costmap:
 
   static_layer:
       enabled:              true
-      map_topic:            "/full_map"
+      map_topic:            "/map"
 
 
   inflation_layer:

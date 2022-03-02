@@ -1,6 +1,6 @@
 local_costmap:
   global_frame: map
-  robot_base_frame: p_randomName/base_link
+  robot_base_frame: R3/base_link
   update_frequency: 5.0
   publish_frequency: 2.0
 
@@ -17,7 +17,7 @@ local_costmap:
 
   static_layer:
       enabled:              true
-      map_topic:            "/full_map"
+      map_topic:            "/R3/full_map"
 
 
   inflation_layer:
@@ -28,4 +28,4 @@ local_costmap:
   obstacle_layer:
      observation_sources: laser_scan_sensor
      footprint_clearing_enabled: true
-     laser_scan_sensor: {data_type: LaserScan, sensor_frame: p_randomName/base_link, clearing: true, marking: true, topic: /p_randomName/scan}
+     laser_scan_sensor: {data_type: LaserScan, sensor_frame: R3/base_link, clearing: true, marking: true, topic: /R3/scan}

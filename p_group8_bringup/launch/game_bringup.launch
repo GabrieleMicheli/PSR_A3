@@ -84,9 +84,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G1"/>
         <arg name="player_color" value="Green"/>
-        <arg name="x_pos" default="$(arg G1_x_pos)"/>
-        <arg name="y_pos" default="$(arg G1_y_pos)"/>
-        <arg name="debug" default="$(arg debug)"/>
+        <arg name="x_pos" value="$(arg G1_x_pos)"/>
+        <arg name="y_pos" value="$(arg G1_y_pos)"/>
+        <arg name="debug" value="$(arg debug)"/>
         <arg name="navigation" value="false"/>
     </include>
 
@@ -94,9 +94,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G2"/>
         <arg name="player_color" value="Green"/>
-        <arg name="x_pos" default="$(arg G2_x_pos)"/>
-        <arg name="y_pos" default="$(arg G2_y_pos)"/>
-        <arg name="debug" default="$(arg debug)"/>
+        <arg name="x_pos" value="$(arg G2_x_pos)"/>
+        <arg name="y_pos" value="$(arg G2_y_pos)"/>
+        <arg name="debug" value="$(arg debug)"/>
         <arg name="navigation" value="false"/>
     </include>
 
@@ -104,9 +104,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="G3"/>
         <arg name="player_color" value="Green"/>
-        <arg name="x_pos" default="$(arg G3_x_pos)"/>
-        <arg name="y_pos" default="$(arg G3_y_pos)"/>
-        <arg name="debug" default="$(arg debug)"/>
+        <arg name="x_pos" value="$(arg G3_x_pos)"/>
+        <arg name="y_pos" value="$(arg G3_y_pos)"/>
+        <arg name="debug" value="$(arg debug)"/>
         <arg name="navigation" value="true"/>
     </include>
 
@@ -130,9 +130,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B1"/>
         <arg name="player_color" value="Blue"/>
-        <arg name="x_pos" default="$(arg B1_x_pos)"/>
-        <arg name="y_pos" default="$(arg B1_y_pos)"/>
-        <arg name="debug" default="$(arg debug)"/>
+        <arg name="x_pos" value="$(arg B1_x_pos)"/>
+        <arg name="y_pos" value="$(arg B1_y_pos)"/>
+        <arg name="debug" value="$(arg debug)"/>
         <arg name="navigation" value="false"/>
     </include>
 
@@ -140,9 +140,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B2"/>
         <arg name="player_color" value="Blue"/>
-        <arg name="x_pos" default="$(arg B2_x_pos)"/>
-        <arg name="y_pos" default="$(arg B2_y_pos)"/>
-        <arg name="debug" default="$(arg debug)"/>
+        <arg name="x_pos" value="$(arg B2_x_pos)"/>
+        <arg name="y_pos" value="$(arg B2_y_pos)"/>
+        <arg name="debug" value="$(arg debug)"/>
         <arg name="navigation" value="false"/>
     </include>
 
@@ -150,9 +150,9 @@
     <include file="$(find p_group8_bringup)/launch/bringup.launch">
         <arg name="player_name" value="B3"/>
         <arg name="player_color" value="Blue"/>
-        <arg name="x_pos" default="$(arg B3_x_pos)"/>
-        <arg name="y_pos" default="$(arg B3_y_pos)"/>
-        <arg name="debug" default="$(arg debug)"/>
+        <arg name="x_pos" value="$(arg B3_x_pos)"/>
+        <arg name="y_pos" value="$(arg B3_y_pos)"/>
+        <arg name="debug" value="$(arg debug)"/>
         <arg name="navigation" value="true"/>
     </include>
 
