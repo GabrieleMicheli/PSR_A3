@@ -1,79 +1,47 @@
 #!/usr/bin/python3
 
-# IMPORTS
 import rospy
-from tkinter import *  # Import tkinter library
-from tkinter import ttk
-from PSR_A3.p_group8_player.src.driver import *
+from std_msgs.msg import String
+from colorama import Fore, Style
 
-def create_window(title, width, height, backGroundColour):
-    window = Tk()  # declare the window
-    window.title(title)  # set window title
-    window.configure(width=width, height=height,bg=backGroundColour)  # set window width, height and back ground colour
 
-    return window
+class Chatting:
+    def __init__(self):
+        self.state_msg = None
+        # Get parameters from YAML file
+        red_players_list = rospy.get_param('/red_players')
+        green_players_list = rospy.get_param('/green_players')
+        blue_players_list = rospy.get_param('/blue_players')
 
-def create_frame(window, backGroundColour):
-    frame = Frame(window)
-    frame.pack(fill=BOTH, expand=1)
-    frame.configure(bg=backGroundColour)  # set frame background color
-    return frame
+        # concatenate the player name inside a single string
+        players_list = [*red_players_list, *green_players_list, *blue_players_list]
 
-def create_canvas(frame, backGroundColour):
-    canvas = Canvas(frame)
-    canvas.pack(side=LEFT, fill=BOTH, expand=1)
-    canvas.configure(bg=backGroundColour)
-    return canvas
+        for player in players_list:
+            rospy.Subscriber('/' + player + '/state_msg', String, self.robot_state_callback)
 
-def addScrollbarToCanvas(frame, canvas):
-    scrollbar = ttk.Scrollbar(frame, orient=VERTICAL, command=canvas.yview)
-    scrollbar.pack(side=RIGHT, fill=Y)
-    return scrollbar
+    def robot_state_callback(self, state_msg):
+        if 'R' in state_msg.data:
+            print(Fore.RED + state_msg.data + Style.RESET_ALL)
+        elif 'G' in state_msg.data:
+            print(Fore.GREEN + state_msg.data + Style.RESET_ALL)
+        else:
+            print(Fore.BLUE + state_msg.data + Style.RESET_ALL)
+        self.state_msg = state_msg.data
 
-def clear_label(label):
-    label.destroy()
+    def chat_creation(self):
+        if not self.state_msg.__eq__(None):
+            print(self.state_msg)
+
 
 def main():
-    rospy.init_node('chatting_node') # init chatting node
+    rospy.init_node('chatting_node')  # init chatting node
+    chatting = Chatting()
 
-    # defining window properties
-    window_title = 'PSR TeamHunt p_group8 chat'; width = 500; height = 800; backGroundColour = 'white'
-
-    window = create_window(window_title, width, height, backGroundColour) # creating a chat window
-
-    main_frame = create_frame(window, backGroundColour)  # creating a main window
-
-    canvas = create_canvas(main_frame, backGroundColour)  # creating a canvas
-
-    scrollbar = addScrollbarToCanvas(main_frame, canvas)  # adding a scrollbar to canvas
-
-    # Configure canvas
-    canvas.configure(yscrollcommand=scrollbar.set)
-    canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-
-    # create another frame inside the canvas
-    second_frame = Frame(canvas)
-    second_frame.configure(bg='white')  # set window background color
-
-    # add that new frame to a window in the canvas
-    canvas.create_window((0, 0), window=second_frame, anchor="nw")
-
-    # Import robot states from driver nodes
-
-    label = Label(second_frame, text='R1: Oh no, run!\n', bg='White', fg='Red') # creating a label
-    label.grid(row=1, column=1) # label positioning
-
-    # create a button to clear the chat
-    clear_button = Button(second_frame, text='CLEAR', command=lambda: clear_label(label))
-    clear_button.grid(row=10000-2, column=10) # button positioning
-
-    def handleProtocol(): # handle WM_DELETE_WINDOW event
-        window.destroy() # deleting the chat windows
-
-    window.protocol("WM_DELETE_WINDOW", handleProtocol)
-
-    window.mainloop()
+    while not rospy.is_shutdown():
+        chatting.chat_creation()
+    rospy.spin()
 
 
 if __name__ == '__main__':
     main()
+

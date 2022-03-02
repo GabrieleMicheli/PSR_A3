@@ -12,6 +12,7 @@
     <arg name="z_pos" default="0.0"/>
     <arg name="debug" default="false"/>
     <arg name="navigation" default="false"/>
+    <arg name="world" default="arena_1"/>
 
 
     <group ns="$(arg player_name)">
@@ -54,6 +55,7 @@
                 <arg name="player_name" value="$(arg player_name)"/>
                 <arg name="initial_pose_x"  value="$(arg x_pos)"/>
                 <arg name="initial_pose_y"  value="$(arg y_pos)"/>
+                <arg name="world" value="$(arg world)"/>
             </include>
         </group>
 

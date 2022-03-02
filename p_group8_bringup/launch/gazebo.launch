@@ -2,11 +2,12 @@
 <launch>
     <!--    Argument to choose the arena at the beginning of the gazebo spawn.-->
     <arg name="world" default="arena_1"/>
+
+    <param name="world" value="$(arg world)"/>
+
     <!-- Including another launch file -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
-
         <arg name="world_name" value="$(find th_description)/worlds/th_$(arg world).world"/>
-
         <arg name="paused" value="false"/>
         <arg name="use_sim_time" value="true"/>
         <arg name="gui" value="true"/>

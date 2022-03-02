@@ -31,6 +31,7 @@
     <arg name="B3_x_pos" default="-7.0"/>
     <arg name="B3_y_pos" default="-2.0"/>
 
+    <arg name="world" default="arena_1"/>
 
     <!-- CREATE TEAM RED -->
 
@@ -62,6 +63,7 @@
         <arg name="y_pos" value="$(arg R3_y_pos)"/>
         <arg name="debug" value="$(arg debug)"/>
         <arg name="navigation" value="true"/>
+        <arg name="world" value="$(arg world)"/>
     </include>
 
     <include file="$(find p_group8_bringup)/launch/multi_map_merge.launch">
@@ -108,6 +110,7 @@
         <arg name="y_pos" value="$(arg G3_y_pos)"/>
         <arg name="debug" value="$(arg debug)"/>
         <arg name="navigation" value="true"/>
+        <arg name="world" value="$(arg world)"/>
     </include>
 
     <include file="$(find p_group8_bringup)/launch/multi_map_merge.launch">
@@ -154,6 +157,7 @@
         <arg name="y_pos" value="$(arg B3_y_pos)"/>
         <arg name="debug" value="$(arg debug)"/>
         <arg name="navigation" value="true"/>
+        <arg name="world" value="$(arg world)"/>
     </include>
 
     <include file="$(find p_group8_bringup)/launch/multi_map_merge.launch">
