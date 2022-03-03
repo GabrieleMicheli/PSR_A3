@@ -112,7 +112,7 @@ class Driver:
         # Defining threshold limits for image processing masks
         self.blue_limits = {'B': {'max': 255, 'min': 100}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 50, 'min': 0}}
         self.red_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 255, 'min': 100}}
-        self.green_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 255, 'min': 100}, 'R': {'max': 50, 'min': 0}}
+        self.green_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 255, 'min': 175}, 'R': {'max': 50, 'min': 0}}
 
         # Other parameters
         self.connectivity = 4
@@ -286,6 +286,7 @@ class Driver:
 
         x = goal_in_base_link.pose.position.x
         y = goal_in_base_link.pose.position.y
+        rospy.loginfo(f'X: {x}, Y:{y}, Frame: {target_frame}')
         distance = math.sqrt(x ** 2 + y ** 2)
 
         return distance
@@ -965,6 +966,7 @@ class Driver:
                 # print(f'Time: {time}, Stamp: {goal.header.stamp}, Duration: {rospy.Duration(10)}')
                 if time < rospy.Duration(10):
                     distance = self.computeDistanceToGoal(goal)
+                    rospy.loginfo(f' {self.name} found a recent goal with a distance of {distance}, and the minimum distance is {min_distance}')
                     if distance < min_distance:
                         min_distance = distance
                         final_goal = goal
@@ -975,11 +977,12 @@ class Driver:
             target_frame = 'map'
             try:
                 goal_in_map_link = self.tf_buffer.transform(goal_present_time, target_frame, rospy.Duration(1))
+                rospy.loginfo(f' {self.name} transformed a new goal')
             except(tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                 rospy.logerr('Could not transform goal from' + final_goal.header.frane.id + ' to ' + target_frame + '.')
 
             if goal_in_map_link:
-                rospy.loginfo('Published a new goal')
+                rospy.loginfo(f' {self.name} published a new goal')
                 self.goal_publisher.publish(goal_in_map_link)
 
 
