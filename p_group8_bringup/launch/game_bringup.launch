@@ -178,7 +178,7 @@
     <node name="set_player_names" pkg="th_referee" type="set_player_names" output="screen"/>
 
     <!-- Launch the 'chatting.py' ROS node -->
-    <node name="chatting" pkg="p_group8_player" type="chatting.py" output="screen"/>
+<!--    <node name="chatting" pkg="p_group8_player" type="chatting.py" output="screen"/>-->
 
 
 </launch>
