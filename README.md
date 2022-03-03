@@ -51,13 +51,10 @@ Be certain that the world argument is the same as the one used on step 1.
 ###### STEP 2a: Create a single robot
 To create a single robot instead of a multiple-robot environment, run the command: \
 ```roslaunch p_group8_bringup bringup.launch player_name:=p_randomName```
-###### STEP 3: Robot moving
-To start the hunting and see the robot moving automatically, run the command: \
-```rosrun p_group8_player driver.py```
-###### STEP 4: 'Activate' the referee
+###### STEP 3: 'Activate' the referee
 To start the referee node, run the command: \
 ```rosrun th_referee th_referee```
-###### STEP 5 (extra): Activate the chat-terminal-bot
+###### STEP 4 (extra): Activate the chat-terminal-bot
 If you want to have some fun during the game, open a new terminal and run the command: \
 ```rosrun p_pgroup8_player chatting.py``` \
 In this way you can see the robot's chat during the game, enjoy!
