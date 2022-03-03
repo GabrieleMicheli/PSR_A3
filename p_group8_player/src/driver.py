@@ -137,6 +137,7 @@ class Driver:
         self.clustering_lidar = rospy.Publisher('/' + self.name + '/marker_array', MarkerArray, queue_size=1)
         # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
         # self.laser_scan_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.laser_scan_callback)
+        self.goal_publisher = rospy.Publisher('/' + self.name + '/move_base_simple/goal', PoseStamped, queue_size=1)
 
     # <---------------------------------------------------------------------------------------------------------->
     # <-----------------------------------Teams Setup------------------------------------------------------------>
@@ -921,6 +922,22 @@ class Driver:
             self.robot_state_message = self.name + ': ' + self.state_msg
             self.robot_state_publisher.publish(self.robot_state_message)
         self.old_state = self.actual_state
+
+    def goalDefinitionCallback(self, message):
+        goal_present_time = copy.deepcopy(message)
+        goal_present_time.header.stamp = rospy.Time.now()
+
+        target_frame = '/map'
+        try:
+            goal_in_base_link = self.tf_buffer.ltransform(goal_present_time, target_frame, rospy.Duration(1))
+        except(tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+            rospy.logerr('Could not transform goal from' + message.header.frane.id + ' to ' + target_frame + '.')
+            return None, None
+
+        if goal_in_base_link:
+            self.goal_publisher =
+
+
 
 def main():
     # ------------------------------------------------------
