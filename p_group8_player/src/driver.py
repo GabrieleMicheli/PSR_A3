@@ -463,7 +463,7 @@ class Driver:
                 and min(distances) == dist_to_hunter:
             self.state = 'flee'
 
-        # If it detects prey and no hunter, the player will attack
+        # If it detects a prey and no hunter, the player will attack
         elif self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0) and self.centroid_teammate == (0, 0)\
                 and min(distances) == dist_to_prey:
             self.state = 'attack'
