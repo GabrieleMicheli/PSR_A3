@@ -58,7 +58,7 @@ To start the referee node, run the command: \
 ```rosrun th_referee th_referee```
 ###### STEP 5 (extra): Activate the chat-terminal-bot
 If you want to have some fun during the game, open a new terminal and run the command: \
-```rosrun p_pgroup8_player chatting.py```
+```rosrun p_pgroup8_player chatting.py``` \
 In this way you can see the robot's chat during the game, enjoy!
 ## rviz  
 To open the initial **rviz** setup, run the command: \
