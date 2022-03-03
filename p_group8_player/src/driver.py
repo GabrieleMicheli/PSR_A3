@@ -581,7 +581,6 @@ class Driver:
             y = range * math.sin(theta)
             self.lidar_points.append([x, y, z])
 
-
         # Call function to transform real points to pixels
         self.lidarPointsToPixels(self.lidar_points)
 
