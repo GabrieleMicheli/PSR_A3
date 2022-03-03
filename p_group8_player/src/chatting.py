@@ -33,6 +33,8 @@ class Chatting:
             print(self.state_msg)
 
 
+
+
 def main():
     rospy.init_node('chatting_node')  # init chatting node
     chatting = Chatting()

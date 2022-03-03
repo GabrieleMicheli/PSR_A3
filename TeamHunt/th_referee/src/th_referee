@@ -23,6 +23,8 @@ import geometry_msgs.msg
 from gazebo_msgs.msg import ModelState, ModelStates, ContactsState
 from prettytable import PrettyTable
 from std_msgs.msg import String
+from std_msgs.msg import Int8MultiArray
+
 
 
 # ------------------------
@@ -58,6 +60,8 @@ class Referee:
         # Create a dictionary so we can retrieve the players of a team using the team color
         self.score = {'red': 0, 'green': 0, 'blue': 0}
         self.final_score = {'red': 0, 'green': 0, 'blue': 0}
+        self.score_list = Int8MultiArray()
+        self.publisher_results = rospy.Publisher('/results', Int8MultiArray, queue_size=1)
 
         # Create an instance for each player
         self.players = {}
@@ -92,8 +96,6 @@ class Referee:
         # Print scoreboard
         self.printScores()
 
-        final_result = rospy.Publisher('winner', String, queue_size=10)
-
         # Game over message
         winner = '(it\'s a tie)'
         if self.final_score['red'] > max(self.final_score['green'], self.final_score['blue']):
@@ -104,7 +106,8 @@ class Referee:
             winner = Fore.BLUE + 'Blue' + Fore.RESET
 
         print(Style.BRIGHT + 'Game Over! Team ' + winner + ' wins!!!')
-        final_result.publish(winner)
+        self.score_list.data = [self.final_score['red'], self.final_score['green'], self.final_score['blue']]
+        self.publisher_results.publish(self.score_list)
 
     def printScores(self):
 

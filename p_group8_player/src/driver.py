@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
 import copy
+
+import cv2.cv2
 import rospy
 import std_msgs
 from std_msgs.msg import String
@@ -26,6 +28,7 @@ from operator import itemgetter
 import random
 import tf
 import scipy.spatial.transform as transf
+from std_msgs.msg import Int8MultiArray
 
 
 class Driver:
@@ -78,6 +81,10 @@ class Driver:
         self.coord_hunter = (0, 0)
         self.coord_prey = (0, 0)
         self.coord_teammate = (0, 0)
+        self.blue_result = 0
+        self.red_result = 0
+        self.green_result = 0
+
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -124,11 +131,11 @@ class Driver:
                                                   queue_size=1)
         self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback,
                                                  queue_size=1)
+        # self.results = rospy.Subscriber('/results', Int8MultiArray, self.callbackPodium, queue_size=1)
         # self.clustering_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarClustering,
         #                                               queue_size=1)
         self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback,
                                                 queue_size=1)
-
 
         self.subscriber_camera_info = rospy.Subscriber('/' + self.name + '/camera/rgb/camera_info', CameraInfo,
                                                        self.getCameraInfoCallback, queue_size=1)
@@ -322,7 +329,7 @@ class Driver:
 
         self.decisionMaking()
         # self.printScores()
-        # podium_img = callbackPodium('podium.jpg')
+
         if self.debug:
             if (x_hunter, y_hunter) != (0, 0):
                 cv2.putText(frame_hunter, 'Hunter!', org=(x_hunter, y_hunter),
@@ -337,7 +344,7 @@ class Driver:
             beta = (1.0 - alpha)
             hunters_n_preys = cv2.addWeighted(frame_hunter, alpha, frame_prey, beta, 0.0)
             # hunters_n_preys = cv2.bitwise_or(frame_prey, frame_hunter)
-            cv2.putText(hunters_n_preys, str(self.state) + '' + str(self.exist_wall), (0, self.height - 50),
+            cv2.putText(hunters_n_preys, str(self.state), (0, self.height - 50),
                         fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(0, 0, 0), thickness=5)
 
             for p in self.lidar_pixels_in_image:
@@ -345,16 +352,11 @@ class Driver:
                 y_lidar = round(int(p[1]), 2)
                 cv2.circle(hunters_n_preys, (x_lidar, y_lidar), 2, (0, 0, 255), -1)
 
-            # rospy.loginfo('hello')
-            # # rospy.loginfo(self.points_in_camera[0])
-            # rospy.loginfo(self.points_in_camera[0][:, 0][0])
-            # rospy.loginfo(self.points_in_camera[0][:, 0][1])
-            #
-            #
-            # cv2.circle(hunters_n_preys, (x_lidar, y_lidar), 5, (255,0 , 0), -1)
-
             cv2.namedWindow(self.name)
-            cv2.imshow(self.name, hunters_n_preys)
+            img = cv2.imread('blue_green_red.jpg')
+
+            # cv2.imshow(self.name, hunters_n_preys)
+            # cv2.imshow('Podium', img)
             cv2.waitKey(1)
 
     # ------------------------------------------------------
@@ -679,21 +681,6 @@ class Driver:
             self.angular_vel_to_flee = min(angular_vel_to_flee, max_speed)
             # rospy.loginfo('this is the self' + str(self.angular_vel_to_flee))
 
-        # # Teammate detected -> Avoid it
-        # elif self.state == 'avoid_teammate':
-        #
-        #     if (self.width / 2 - self.centroid_teammate[0]) > 0:
-        #         rotation_direction = -1
-        #         speed = self.centroid_teammate[0]
-        #     else:
-        #         rotation_direction = 1
-        #         speed = self.width - self.centroid_teammate[0]
-        #
-        #     angular_vel_to_avoid_teammate = 0.001 * rotation_direction * speed
-        #
-        #     self.linear_vel_to_avoid_teammate = 0.8
-        #     self.angular_vel_to_avoid_teammate = min(angular_vel_to_avoid_teammate, max_speed)
-
         # Only Wall Detected -> Avoid_wall
         elif self.state == 'avoid_wall':
 
@@ -703,9 +690,6 @@ class Driver:
             if self.angular_vel_to_avoid_wall < -np.pi / 4 or self.angular_vel_to_avoid_wall > np.pi / 4:
                 self.linear_vel_to_avoid_wall = 0
                 self.angular_vel_to_avoid_wall = 1.4
-            # if self.in_front_points != [] and all(self.in_front_points):
-            #     self.linear_vel_to_avoid_wall = 0.3
-            #     self.angular_vel_to_avoid_wall = 0
 
     def printScores(self):
 
@@ -786,7 +770,6 @@ class Driver:
         translation_matrix = np.vstack(XYZ)
 
         L_t_C = np.concatenate((rotation_matrix, translation_matrix), axis=1)
-        rospy.loginfo(L_t_C)
 
         for point in realpoints:
             p = np.vstack((point[0], point[1], 0, 1))
@@ -876,21 +859,6 @@ class Driver:
 
         return Closer_lidar_hunter_point, Closer_lidar_prey_point, Closer_lidar_teammate_point
 
-    # def chatting(self):
-    #     self.actual_state = self.state
-    #     if self.actual_state != self.old_state: # if state changed -> print state msg
-    #         if self.state.__eq__('wait'):
-    #             self.state_msg = 'What a deadly bore'
-    #         elif self.state.__eq__('attack'):
-    #             self.state_msg = 'I am very hungry'
-    #         elif self.state.__eq__('flee'):
-    #             self.state_msg = 'Oh no, I have to run'
-    #         else:
-    #             self.state_msg = 'Walls everywhere in this game'
-    #         # print(self.name + self.state_msg) # print state msg
-    #         self.robot_state_message = self.name + ': ' + self.state_msg
-    #         self.robot_state_publisher.publish(self.robot_state_message)
-    #     self.old_state = self.actual_state
 
     def chatting(self):
         self.actual_state = self.state
@@ -912,6 +880,49 @@ class Driver:
             self.robot_state_message = self.name + ': ' + self.state_msg
             self.robot_state_publisher.publish(self.robot_state_message)
         self.old_state = self.actual_state
+
+    # def callbackPodium(self, results):
+    #     self.red_result = 0
+    #     self.green_result = 0
+    #     self.blue_result = 0
+    #     if results:
+    #         self.red_result = results.data[0]
+    #         self.green_result = results.data[1]
+    #         self.blue_result = results.data[2]
+
+        # if self.red_result > self.green_result > self.blue_result:
+        #     img = cv2.imread('red_green_blue.jpg')
+        #     cv2.namedWindow('Podium Winning Team')
+        #     cv2.imshow('Podium Winning Team', img)
+        #
+        # elif self.red_result > self.blue_result > self.green_result:
+        #     img = cv2.imread('red_blue_green.jpg')
+        #     cv2.namedWindow('Podium Winning Team')
+        #     cv2.imshow('Podium Winning Team', img)
+        #
+        # elif self.green_result > self.red_result > self.blue_result:
+        #     img = cv2.imread('green_red_blue.jpg')
+        #     cv2.namedWindow('Podium Winning Team')
+        #     cv2.imshow('Podium Winning Team', img)
+        #
+        # elif self.green_result > self.blue_result > self.red_result:
+        #     img = cv2.imread('green_blue_red.jpg')
+        #     cv2.namedWindow('Podium Winning Team')
+        #     cv2.imshow('Podium Winning Team', img)
+        #
+        # elif self.blue_result > self.green_result > self.red_result:
+        #     img = cv2.imread('blue_green_red.jpg')
+        #     cv2.namedWindow('Podium Winning Team')
+        #     cv2.imshow('Podium Winning Team', img)
+        #
+        # elif self.blue_result > self.red_result > self.green_result:
+        #     img = cv2.imread('blue_red_green.jpg')
+        #     cv2.namedWindow('Podium Winning Team')
+        #     cv2.imshow('Podium Winning Team', img)
+        # else:
+        #     rospy.loginfo('it is a tie')
+
+
 
 def main():
     # ------------------------------------------------------
