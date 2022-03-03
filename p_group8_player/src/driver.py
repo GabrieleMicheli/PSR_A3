@@ -129,6 +129,7 @@ class Driver:
         self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback,
                                                 queue_size=1)
 
+
         self.subscriber_camera_info = rospy.Subscriber('/' + self.name + '/camera/rgb/camera_info', CameraInfo,
                                                        self.getCameraInfoCallback, queue_size=1)
         # self.referee_subscriber = rospy.Subscriber('/winner', String, self.callbackPodium, queue_size=1)
