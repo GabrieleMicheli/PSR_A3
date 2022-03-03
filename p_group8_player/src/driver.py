@@ -2,13 +2,13 @@
 
 import copy
 
-import cv2.cv2
 import rospy
 import std_msgs
 from std_msgs.msg import String
 import tf2_ros
 from cv_bridge import CvBridge
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import Twist
+from tf2_geometry_msgs import PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
 from driver_functions import *
@@ -85,6 +85,9 @@ class Driver:
         self.red_result = 0
         self.green_result = 0
 
+        self.goal1 = None
+        self.goal2 = None
+        self.goal3 = None
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -115,7 +118,7 @@ class Driver:
         # Defining threshold limits for image processing masks
         self.blue_limits = {'B': {'max': 255, 'min': 100}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 50, 'min': 0}}
         self.red_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 50, 'min': 0}, 'R': {'max': 255, 'min': 100}}
-        self.green_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 255, 'min': 100}, 'R': {'max': 50, 'min': 0}}
+        self.green_limits = {'B': {'max': 50, 'min': 0}, 'G': {'max': 255, 'min': 175}, 'R': {'max': 50, 'min': 0}}
 
         # Other parameters
         self.connectivity = 4
@@ -137,6 +140,7 @@ class Driver:
         self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback,
                                                 queue_size=1)
 
+
         self.subscriber_camera_info = rospy.Subscriber('/' + self.name + '/camera/rgb/camera_info', CameraInfo,
                                                        self.getCameraInfoCallback, queue_size=1)
         # self.referee_subscriber = rospy.Subscriber('/winner', String, self.callbackPodium, queue_size=1)
@@ -148,6 +152,21 @@ class Driver:
         self.clustering_lidar = rospy.Publisher('/' + self.name + '/marker_array', MarkerArray, queue_size=1)
         # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
         # self.laser_scan_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.laser_scan_callback)
+        self.local_goal_publisher = rospy.Publisher('/' + self.name + '/prey_goal', PoseStamped, queue_size=1)
+        if self.navigation:
+            self.goal_publisher = rospy.Publisher('/' + self.name + '/move_base_simple/goal', PoseStamped, queue_size=1)
+            if self.team == 'Red':
+                self.goal1_subscriber = rospy.Subscriber('/R1/prey_goal', PoseStamped, self.goal1Callback, queue_size=1)
+                self.goal2_subscriber = rospy.Subscriber('/R2/prey_goal', PoseStamped, self.goal2Callback, queue_size=1)
+                self.goal3_subscriber = rospy.Subscriber('/R3/prey_goal', PoseStamped, self.goal3Callback, queue_size=1)
+            if self.team == 'Green':
+                self.goal1_subscriber = rospy.Subscriber('/G1/prey_goal', PoseStamped, self.goal1Callback, queue_size=1)
+                self.goal2_subscriber = rospy.Subscriber('/G2/prey_goal', PoseStamped, self.goal2Callback, queue_size=1)
+                self.goal3_subscriber = rospy.Subscriber('/G3/prey_goal', PoseStamped, self.goal3Callback, queue_size=1)
+            if self.team == 'Blue':
+                self.goal1_subscriber = rospy.Subscriber('/B1/prey_goal', PoseStamped, self.goal1Callback, queue_size=1)
+                self.goal2_subscriber = rospy.Subscriber('/B2/prey_goal', PoseStamped, self.goal2Callback, queue_size=1)
+                self.goal3_subscriber = rospy.Subscriber('/B3/prey_goal', PoseStamped, self.goal3Callback, queue_size=1)
 
     # <---------------------------------------------------------------------------------------------------------->
     # <-----------------------------------Teams Setup------------------------------------------------------------>
@@ -258,19 +277,23 @@ class Driver:
 
             self.publisher_command.publish(twist)
 
+        else:
+            self.goal_definition()
+
     def computeDistanceToGoal(self, goal):
         goal_present_time = copy.deepcopy(goal)
         goal_present_time.header.stamp = rospy.Time.now()
 
         target_frame = self.name + '/base_footprint'
         try:
-            goal_in_base_link = self.tf_buffer.ltransform(goal_present_time, target_frame, rospy.Duration(1))
+            goal_in_base_link = self.tf_buffer.transform(goal_present_time, target_frame, rospy.Duration(1))
         except(tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             rospy.logerr('Could not transform goal from' + goal.header.frane.id + ' to ' + target_frame + '.')
             return None, None
 
         x = goal_in_base_link.pose.position.x
         y = goal_in_base_link.pose.position.y
+        rospy.loginfo(f'X: {x}, Y:{y}, Frame: {target_frame}')
         distance = math.sqrt(x ** 2 + y ** 2)
 
         return distance
@@ -352,11 +375,16 @@ class Driver:
                 y_lidar = round(int(p[1]), 2)
                 cv2.circle(hunters_n_preys, (x_lidar, y_lidar), 2, (0, 0, 255), -1)
 
-            cv2.namedWindow(self.name)
-            img = cv2.imread('blue_green_red.jpg')
+            # rospy.loginfo('hello')
+            # # rospy.loginfo(self.points_in_camera[0])
+            # rospy.loginfo(self.points_in_camera[0][:, 0][0])
+            # rospy.loginfo(self.points_in_camera[0][:, 0][1])
+            #
+            #
+            # cv2.circle(hunters_n_preys, (x_lidar, y_lidar), 5, (255,0 , 0), -1)
 
-            # cv2.imshow(self.name, hunters_n_preys)
-            # cv2.imshow('Podium', img)
+            cv2.namedWindow(self.name)
+            cv2.imshow(self.name, hunters_n_preys)
             cv2.waitKey(1)
 
     # ------------------------------------------------------
@@ -558,6 +586,7 @@ class Driver:
         self.lidarPointsToPixels(self.lidar_points)
 
         real_coord_hunter, real_coord_prey, real_coord_teammate = self.find_coordinates_of_centroid()
+        self.local_goal_publisher.publish(real_coord_prey)
         self.coord_hunter = (real_coord_hunter.pose.position.x, real_coord_hunter.pose.position.y)
         self.coord_prey = (real_coord_prey.pose.position.x, real_coord_prey.pose.position.y)
         self.coord_teammate = (real_coord_teammate.pose.position.x, real_coord_teammate.pose.position.y)
@@ -770,6 +799,7 @@ class Driver:
         translation_matrix = np.vstack(XYZ)
 
         L_t_C = np.concatenate((rotation_matrix, translation_matrix), axis=1)
+        # rospy.loginfo(L_t_C)
 
         for point in realpoints:
             p = np.vstack((point[0], point[1], 0, 1))
@@ -798,21 +828,33 @@ class Driver:
         Closer_lidar_teammate_point = PoseStamped()
 
         # Initialize variables
+        Closer_lidar_hunter_point.header.stamp = rospy.Time.now()
+        Closer_lidar_hunter_point.header.frame_id = self.name + '/base_scan'
         Closer_lidar_hunter_point.pose.position.x = math.inf
         Closer_lidar_hunter_point.pose.position.y = math.inf
 
+        Closer_lidar_prey_point.header.stamp = rospy.Time.now()
+        Closer_lidar_prey_point.header.frame_id = self.name + '/base_scan'
         Closer_lidar_prey_point.pose.position.x = math.inf
         Closer_lidar_prey_point.pose.position.y = math.inf
 
+        Closer_lidar_teammate_point.header.stamp = rospy.Time.now()
+        Closer_lidar_teammate_point.header.frame_id = self.name + '/base_scan'
         Closer_lidar_teammate_point.pose.position.x = math.inf
         Closer_lidar_teammate_point.pose.position.y = math.inf
 
+        previous_lidar_hunter_point.header.stamp = rospy.Time.now()
+        previous_lidar_hunter_point.header.frame_id = self.name + '/base_scan'
         previous_lidar_hunter_point.pose.position.x = math.inf
         previous_lidar_hunter_point.pose.position.y = math.inf
 
+        previous_lidar_prey_point.header.stamp = rospy.Time.now()
+        previous_lidar_prey_point.header.frame_id = self.name + '/base_scan'
         previous_lidar_prey_point.pose.position.x = math.inf
         previous_lidar_prey_point.pose.position.y = math.inf
 
+        previous_lidar_teammate_point.header.stamp = rospy.Time.now()
+        previous_lidar_teammate_point.header.frame_id = self.name + '/base_scan'
         previous_lidar_teammate_point.pose.position.x = math.inf
         previous_lidar_teammate_point.pose.position.y = math.inf
 
@@ -880,6 +922,71 @@ class Driver:
             self.robot_state_message = self.name + ': ' + self.state_msg
             self.robot_state_publisher.publish(self.robot_state_message)
         self.old_state = self.actual_state
+
+    def goal_definition(self):
+        goal_list = [None, None, None]
+        min_distance = math.inf
+        final_goal = None
+        if self.goal1:
+            goal_list[0] = self.goal1
+        if self.goal2:
+            goal_list[1] = self.goal2
+        if self.goal3:
+            goal_list[2] = self.goal3
+
+        for goal in goal_list:
+            if goal:
+                time = rospy.Time.now() - goal.header.stamp
+                # print(f'Time: {time}, Stamp: {goal.header.stamp}, Duration: {rospy.Duration(10)}')
+                if time < rospy.Duration(10):
+                    distance = self.computeDistanceToGoal(goal)
+                    rospy.loginfo(f' {self.name} found a recent goal with a distance of {distance}, and the minimum distance is {min_distance}')
+                    if distance < min_distance:
+                        min_distance = distance
+                        final_goal = goal
+
+        if final_goal:
+            goal_present_time = copy.deepcopy(final_goal)
+            goal_present_time.header.stamp = rospy.Time.now()
+            target_frame = 'map'
+            try:
+                goal_in_map_link = self.tf_buffer.transform(goal_present_time, target_frame, rospy.Duration(1))
+                rospy.loginfo(f' {self.name} transformed a new goal')
+            except(tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                rospy.logerr('Could not transform goal from' + final_goal.header.frane.id + ' to ' + target_frame + '.')
+
+            if goal_in_map_link:
+                rospy.loginfo(f' {self.name} published a new goal')
+                self.goal_publisher.publish(goal_in_map_link)
+
+
+
+        rospy.sleep(5)
+
+        # goal_present_time = copy.deepcopy(message)
+        # goal_present_time.header.stamp = rospy.Time.now()
+        #
+        # target_frame = '/map'
+        # try:
+        #     goal_in_base_link = self.tf_buffer.ltransform(goal_present_time, target_frame, rospy.Duration(1))
+        # except(tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+        #     rospy.logerr('Could not transform goal from' + message.header.frane.id + ' to ' + target_frame + '.')
+        #     return None, None
+        #
+        # if goal_in_base_link:
+        #     self.goal_publisher = 1
+
+    def goal1Callback(self, message):
+        # print(f'goal1: {message}')
+        self.goal1 = message
+
+    def goal2Callback(self, message):
+        # print('goal2')
+        self.goal2 = message
+
+    def goal3Callback(self, message):
+        # print('goal3')
+        self.goal3 = message
 
     # def callbackPodium(self, results):
     #     self.red_result = 0
