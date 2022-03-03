@@ -68,22 +68,22 @@ To open the visualization from the navigation toolbox, use the command: \
 ## Robot manual moving 
 ###### Teleop
 Run the **teleop.launch** file to move the robot using the computer's keyboard. To do this, run the command: \
+
 ```roslaunch p_group8_bringup teleop.launch``` 
+
 ###### Teleop-joy
 Using the [joy](http://wiki.ros.org/joy) package it's possible to control the car using a videogame controller.
 To run this code run the command:
 
-```roslaunch p_group8_bringup fnr_gazebo.launch```
-
-to create the FNR track, use the:
-
-```roslaunch p_group8_bringup bringup.launch```
-
-command to spawn a regular robot and finally run the:
-
 ```roslaunch p_group8_bringup joy_teleop.launch```
 
-command to launch the controller.
+To create the FNR track, use the:
+
+```roslaunch p_group8_bringup fnr_gazebo.launch```
+
+To spawn a regular robot run:
+
+```roslaunch p_group8_bringup bringup.launch```
 
 Here are the buttons used and their functionalities:
 - **Left stick**: controls angular velocity
