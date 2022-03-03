@@ -46,7 +46,8 @@ create the **th_arena_1** environemnt (see **Arena description** chapter)
 
 ###### STEP 2: Create the multi-robot environment
 To create the multirobot environment, run the command: \
-```roslaunch p_group8_bringup game_bringup.launch```
+```roslaunch p_group8_bringup game_bringup.launch world:=arena_1```\
+Be certain that the world argument is the same as the one used on step 1.
 ###### STEP 2a: Create a single robot
 To create a single robot instead of a multiple-robot environment, run the command: \
 ```roslaunch p_group8_bringup bringup.launch player_name:=p_randomName```
@@ -63,6 +64,9 @@ In this way you can see the robot's chat during the game, enjoy!
 ## rviz  
 To open the initial **rviz** setup, run the command: \
 ```roslaunch p_group8_bringup visualize.launch```  
+
+To open the visualization from the navigation toolbox, use the command: \
+```roslaunch p_group8_nav visualize.launch```
 
 ## Robot manual moving 
 ###### Teleop
