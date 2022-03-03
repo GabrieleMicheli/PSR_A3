@@ -101,7 +101,7 @@ To start the referee node, run the command: \
 ###### STEP 4 (extra): Activate the chat-terminal-bot
 If you want to have some fun during the game, open a new terminal and run the command: \
 ```rosrun p_pgroup8_player chatting.py``` \
-In this way you can see the robot's chat during the game, enjoy!
+In this way you can see the robot's chat during the game, enjoy! \
 You can see a video demo of team hunt [here](https://youtu.be/x-3ky_ewXvY)!
 
 
