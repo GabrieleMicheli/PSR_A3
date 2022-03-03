@@ -24,7 +24,7 @@ class Chatting:
             print(Fore.RED + state_msg.data + Style.RESET_ALL)
         elif 'G' in state_msg.data:
             print(Fore.GREEN + state_msg.data + Style.RESET_ALL)
-        else:
+        elif 'B' in state_msg.data:
             print(Fore.BLUE + state_msg.data + Style.RESET_ALL)
         self.state_msg = state_msg.data
 

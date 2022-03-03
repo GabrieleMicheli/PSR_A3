@@ -903,14 +903,19 @@ class Driver:
         self.actual_state = self.state
         if self.actual_state != self.old_state:
             if self.state.__eq__('wait'):
-                self.state_msg = 'What a deadly bore'
+                waiting_list = ['I really need a beer right now', 'This game is so boring', 'I have no time to lose...']
+                self.state_msg = random.choice(waiting_list)
             elif self.state.__eq__('attack'):
-                self.state_msg = 'I am very hungry'
+                attack_list = ['You better be scared', 'Eat my shorts', 'Run to the hills']
+                self.state_msg = random.choice(attack_list) + ', ' + self.prey.lower()
             elif self.state.__eq__('flee'):
-                self.state_msg = 'Oh no, I have to run'
+                # self.state_msg = 'Oh no, I have to run! ' + self.hunter.lower() + ' is coming'
+                fleeing_list = ['Oh no, I have to run from ', 'You are a snail ', 'You look like my grandma ']
+                self.state_msg = random.choice(fleeing_list) + self.hunter.lower()
             else:
-                self.state_msg = 'Walls everywhere in this game'
-            # print(self.name + self.state_msg) # print state msg
+                avoidance_list = ['So annoying, walls everywhere in this game :(',
+                                  'This place looks like the minotaur labyrinth', 'Another wall? What the hell?']
+                self.state_msg = random.choice(avoidance_list)
             self.robot_state_message = self.name + ': ' + self.state_msg
             self.robot_state_publisher.publish(self.robot_state_message)
         self.old_state = self.actual_state
