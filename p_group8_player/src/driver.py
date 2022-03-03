@@ -75,6 +75,9 @@ class Driver:
         self.lidar_pixels = []
         self.pts_in_image = []
         self.lidar_pixels_in_image = []
+        self.coord_hunter = (0, 0)
+        self.coord_prey = (0, 0)
+        self.coord_teammate = (0, 0)
 
         # Getting parameters
         red_players_list = rospy.get_param('/red_players')
@@ -443,36 +446,76 @@ class Driver:
            :return state : state of robot - String
         """
 
+        dist_to_hunter = sqrt((self.coord_hunter[0] ** 2 + self.coord_hunter[1]) ** 2)
+        dist_to_prey = sqrt((self.coord_prey[0] ** 2 + self.coord_prey[1]) ** 2)
+        dist_to_teammate = sqrt((self.coord_teammate[0] ** 2 + self.coord_teammate[1]) ** 2)
+        distances = [dist_to_hunter, dist_to_teammate, dist_to_prey]
+
         # If it detects a wall_avoiding_angle it's only a "wall" when both prey, hunter and teammate centroids are (0,0)
-        if self.centroid_prey == (0, 0) and self.centroid_hunter == (0, 0) and self.exist_wall == True:
+        if dist_to_hunter != self.min_range_detected and dist_to_prey != self.min_range_detected \
+                and dist_to_teammate != self.min_range_detected and self.min_range_detected < 0.5:
             self.state = 'avoid_wall'
             # print(Fore.RED + 'My name is ' + self.name + ' and I am too close to the wall. Avoiding it.' + Fore.RESET)
             # cprint("\nThank you for using AR Paint, hope to you see you again soon\n", color='white',
             #        on_color='on_blue')
 
         # If it detects a hunter and no prey, the player will flee away
-        elif self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0) and self.exist_wall == False:
+        elif self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0) and self.centroid_teammate == (0, 0) \
+                and min(distances) == dist_to_hunter:
             self.state = 'flee'
 
         # If it detects a prey and no hunter, the player will attack
-        elif self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0) and self.exist_wall == False:
+        elif self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0) and self.centroid_teammate == (0, 0)\
+                and min(distances) == dist_to_prey:
             self.state = 'attack'
 
+        # If it detects a prey and no hunter, the player will attack
+        elif self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0 ) and \
+                self.centroid_teammate != (0, 0) and min(distances) == dist_to_teammate:
+            self.state = 'avoid_wall'
+
         # If it detects a prey and a hunter, the player will make a decision based on the distance between both
-        elif self.centroid_hunter != (0, 0) and self.centroid_prey != (
-                0, 0) and self.wall_avoiding_angle == 0 and self.exist_wall == False:
+        elif self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0) and self.centroid_teammate == (0, 0):
 
             # Calculates the euclidean distance between the two centroids
-            self.distance_hunter_to_prey = sqrt((self.centroid_hunter[0] - self.centroid_prey[0]) ** 2
-                                                + (self.centroid_hunter[1] - self.centroid_prey[1]) ** 2)
+            self.distance_hunter_to_prey = dist_to_hunter - dist_to_prey
             # Threshold training with gazebo
-            if self.distance_hunter_to_prey > 400:
+            if self.distance_hunter_to_prey > 0.5:
                 self.state = 'attack'
             else:
                 self.state = 'flee'
 
+        elif self.centroid_hunter != (0, 0) and self.centroid_prey != (0, 0) and self.centroid_teammate != (0, 0):
+
+            if min(distances) == dist_to_hunter:
+                self.state = 'flee'
+
+            if min(distances) == dist_to_prey and self.distance_hunter_to_prey > 0.5:
+                self.state = 'attack'
+
+            elif min(distances) == dist_to_prey and self.distance_hunter_to_prey > 0.5:
+                self.state = 'flee'
+
+            if min(distances) == dist_to_teammate:
+                self.state = 'avoid_wall'
+
+        elif self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0) and self.centroid_teammate != (0, 0):
+            if min(distances) == dist_to_hunter:
+                self.state = 'flee'
+
+            if min(distances) == dist_to_teammate:
+                self.state = 'avoid_wall'
+
+        elif self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0) and self.centroid_teammate != (0, 0):
+
+            if min(distances) == dist_to_prey:
+                self.state = 'attack'
+
+            if min(distances) == dist_to_teammate:
+                self.state = 'avoid_wall'
+
         # If it detects no prey, no hunter and no wall, the player will wait and walk around
-        elif self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0) and self.exist_wall == False:
+        else:
             self.state = 'wait'
 
         # elif self.centroid_teammate != (0,0):
@@ -512,11 +555,9 @@ class Driver:
         self.lidarPointsToPixels(self.lidar_points)
 
         real_coord_hunter, real_coord_prey, real_coord_teammate = self.find_coordinates_of_centroid()
-
-
-        # rospy.loginfo('this is coordinates')
-        # rospy.loginfo(real_coord_teammate)
-
+        self.coord_hunter = (real_coord_hunter.pose.position.x, real_coord_hunter.pose.position.y)
+        self.coord_prey = (real_coord_prey.pose.position.x, real_coord_prey.pose.position.y)
+        self.coord_teammate = (real_coord_teammate.pose.position.x, real_coord_teammate.pose.position.y)
 
         # create point_cloud2 data structure
         self.pc2 = point_cloud2.create_cloud(header, fields, self.lidar_points)
@@ -541,108 +582,102 @@ class Driver:
             y_min_detected = self.min_range_detected * sin(self.min_range_angle)
             self.min_range_point = (x_min_detected, y_min_detected, 0)
 
-        #     if msgScan.ranges[min_range_detected_idx] < 1.5 and not \
-        #             (np.pi / 6 + np.pi / 2 <= min_range_angle <= 3 * np.pi / 2 - np.pi / 6):
+            if msgScan.ranges[min_range_detected_idx] < 1.5 and not \
+                    (np.pi / 6 + np.pi / 2 <= self.min_range_angle <= 3 * np.pi / 2 - np.pi / 6):
+
+                if self.min_range_angle < np.pi / 2:
+                    self.wall_avoiding_angle = self.min_range_angle - (np.pi / 6 + np.pi / 2)
+
+                else:
+                    self.wall_avoiding_angle = self.min_range_angle - (3 * np.pi / 2 - np.pi / 6)
+            else:
+                self.wall_avoiding_angle = 0
+        else:
+            self.wall_avoiding_angle = 0
+
+        # range_angles = np.arange(len(msgScan.ranges))
+        # ranges = np.array(msgScan.ranges)
+        # range_mask = (ranges > self.laser_thresh)
+        # ranges = list(range_angles[range_mask])
         #
-        #         if min_range_angle < np.pi / 2:
-        #             self.wall_avoiding_angle = min_range_angle - (np.pi / 6 + np.pi / 2)
+        # gap_list = []
         #
-        #         else:
-        #             self.wall_avoiding_angle = min_range_angle - (3 * np.pi / 2 - np.pi / 6)
-        #     else:
-        #         self.wall_avoiding_angle = 0
-        # else:
-        #     self.wall_avoiding_angle = 0
-
-        range_angles = np.arange(len(msgScan.ranges))
-        ranges = np.array(msgScan.ranges)
-        range_mask = (ranges > self.laser_thresh)
-        ranges = list(range_angles[range_mask])
-
-        gap_list = []
-
-        for k, g in groupby(enumerate(ranges), lambda ix: ix[1] - ix[0]):
-            g = (map(itemgetter(1), g))
-            g = list(map(int, g))
-            gap_list.append((g[0], g[-1]))
-        gap_list.sort(key=len)
-
-        largest_gap = gap_list[-1]
-        min_angle, max_angle = largest_gap[0] * (msgScan.angle_increment * 180 / np.pi), largest_gap[-1] * (
-                msgScan.angle_increment * 180 / np.pi)
-        self.average_gap = (max_angle - min_angle) / 2
-
-        self.wall_avoiding_angle = min_angle + self.average_gap
+        # for k, g in groupby(enumerate(ranges), lambda ix: ix[1] - ix[0]):
+        #     g = (map(itemgetter(1), g))
+        #     g = list(map(int, g))
+        #     gap_list.append((g[0], g[-1]))
+        # gap_list.sort(key=len)
+        #
+        # largest_gap = gap_list[-1]
+        # min_angle, max_angle = largest_gap[0] * (msgScan.angle_increment * 180 / np.pi), largest_gap[-1] * (
+        #         msgScan.angle_increment * 180 / np.pi)
+        # self.average_gap = (max_angle - min_angle) / 2
+        #
+        # self.wall_avoiding_angle = min_angle + self.average_gap
 
         # -------------------------------------------------------------------------------------------------------------
 
-        # Clustering function
-        thresh = 30
-        marker_array = MarkerArray()
-        marker = self.createMarker(0)
-        marker_array.markers.append(marker)
-        last_marker = []
-
-        for idx, (range1, range2) in enumerate(zip(msgScan.ranges[:-1], msgScan.ranges[1:])):
-            if range1 < 0.1 or range2 < 0.1:
-                continue
-
-            diff = abs(range2 - range1)
-
-            if range1 > 3.5 or range2 > 3.5:
-                marker = self.createMarker(idx + 1)
-                marker_array.markers.append(marker)
-                continue
-
-            if diff > thresh:
-                marker = self.createMarker(idx + 1)
-                marker_array.markers.append(marker)
-
-            theta = msgScan.angle_min + idx * msgScan.angle_increment
-            x = range1 * cos(theta)
-            y = range1 * sin(theta)
-
-            # x = round(range1 * cos(theta), 3)
-            # y = round(range1 * sin(theta), 3)
-
-            point = Point(x=x, y=y, z=0)
-            last_marker = marker_array.markers[-1]
-            last_marker.points.append(point)
-
-            if len(last_marker.points) >= 35:
-                self.color_marker0 = 1
-                self.color_marker1 = 0
-
-                # rospy.loginfo('check 2')
-                # rospy.loginfo(last_marker.points.x[0])
-                # rospy.loginfo('check 3')
-                # rospy.loginfo(last_marker.points[0][0])
-                break
-
-            elif len(last_marker.points) < 35:
-                self.color_marker0 = 0
-                self.color_marker1 = 1
-
-
-        error = 0.05
-        for marker in marker_array.markers:
-            if not marker.points == []:
-                rospy.loginfo('check check')
-                rospy.loginfo(marker.points[0].x)
-            # rospy.loginfo('check check')
-            # rospy.loginfo(marker.points)
-            # rospy.loginfo(type(marker.points))
-
-            if self.min_range_point in marker.points:
-                self.exist_wall = True
-                # elif (self.min_range_point[0] - self.min_range_point[0]*error) < marker.points[0] < (self.min_range_point[0] + self.min_range_point[0]*error) and\
-                #         (self.min_range_point[1] - self.min_range_point[1]*error) < marker.points[1] < (self.min_range_point[1] + self.min_range_point[1]*error):
-                rospy.loginfo('HEREEEEEEEEEEEEEEEEEE??????????????')
-                self.exist_wall = True
-            else:
-                self.exist_wall = False
-
-        self.clustering_lidar.publish(marker_array)
+        # # Clustering function
+        # thresh = 30
+        # marker_array = MarkerArray()
+        # marker = self.createMarker(0)
+        # marker_array.markers.append(marker)
+        #
+        # for idx, (range1, range2) in enumerate(zip(msgScan.ranges[:-1], msgScan.ranges[1:])):
+        #     if range1 < 0.1 or range2 < 0.1:
+        #         continue
+        #
+        #     diff = abs(range2 - range1)
+        #
+        #     if range1 > math.inf or range2 > math.inf:
+        #         marker = self.createMarker(idx + 1)
+        #         marker_array.markers.append(marker)
+        #         continue
+        #
+        #     if diff > thresh:
+        #         marker = self.createMarker(idx + 1)
+        #         marker_array.markers.append(marker)
+        #
+        #     theta = msgScan.angle_min + idx * msgScan.angle_increment
+        #     x = range1 * cos(theta)
+        #     y = range1 * sin(theta)
+        #     point = Point(x=x, y=y, z=0)
+        #     last_marker = marker_array.markers[-1]
+        #     last_marker.points.append(point)
+        #
+        #     if len(last_marker.points) >= 15:
+        #         self.color_marker0 = 1
+        #         self.color_marker1 = 0
+        #
+        #     elif len(last_marker.points) < 15:
+        #         self.color_marker0 = 0
+        #         self.color_marker1 = 1
+        #
+        # marker_point = (0, 0, 0)
+        # error = 0.05
+        # idx_marker = 0
+        # for mark in marker_array.markers:
+        #     if not mark.points == []:
+        #         # rospy.loginfo('check check')
+        #         marker_point = (mark.points[idx_marker].x, mark.points[idx_marker].y, 0)
+        #         # # rospy.loginfo(marker_point)
+        #         # # rospy.loginfo('check 2')
+        #
+        #         if marker_point in self.min_range_point and len(marker.points) > 15:
+        #             self.exist_wall = True
+        #             rospy.loginfo('entrei no true')
+        #             # elif (self.min_range_point[0] - self.min_range_point[0]*error) < marker.points[0] < (self.min_range_point[0] + self.min_range_point[0]*error) and\
+        #             #         (self.min_range_point[1] - self.min_range_point[1]*error) < marker.points[1] < (self.min_range_point[1] + self.min_range_point[1]*error):
+        #             rospy.loginfo('HEREEEEEEEEEEEEEEEEEE??????????????')
+        #         else:
+        #             self.exist_wall = False
+        #             rospy.loginfo('entrei no false')
+        #
+        #     else:
+        #         self.exist_wall = False
+        #         # rospy.loginfo('entrei no 2')
+        #     idx_marker += 1
+        # self.clustering_lidar.publish(marker_array)
 
     # ------------------------------------------------------
     #               takeAction function
@@ -717,15 +752,6 @@ class Driver:
 
         # Only Wall Detected -> Avoid_wall
         elif self.state == 'avoid_wall':
-            # max_gap = 40
-            # Kp = 0.05
-            #
-            # if self.average_gap < max_gap:
-            #     self.angular_vel_to_avoid_wall = -0.5
-            #     self.linear_vel_to_avoid_wall = 0.3
-            # else:
-            #     self.linear_vel_to_avoid_wall = 0.5
-            #     self.angular_vel_to_avoid_wall = Kp * (-1) * (90 - self.wall_avoiding_angle)
 
             self.angular_vel_to_avoid_wall = self.wall_avoiding_angle
             self.linear_vel_to_avoid_wall = 0.6
@@ -865,7 +891,8 @@ class Driver:
         dist_teammate_previous = 1000
         if self.centroid_hunter != (0, 0):
             for idx_hunter, pixel_hunter in enumerate(self.lidar_pixels):
-                dist_hunter = math.sqrt((pixel_hunter[0] - self.centroid_hunter[0]) ** 2 + (pixel_hunter[1] -self.centroid_hunter[1]) ** 2)
+                dist_hunter = math.sqrt(
+                    (pixel_hunter[0] - self.centroid_hunter[0]) ** 2 + (pixel_hunter[1] - self.centroid_hunter[1]) ** 2)
                 if dist_hunter < dist_hunter_previous:
                     dist_hunter_previous = dist_hunter
                     previous_lidar_hunter_point.pose.position.x = self.lidar_points[idx_hunter][0]
@@ -874,7 +901,7 @@ class Driver:
         if self.centroid_prey != (0, 0):
             for idx_prey, pixel_prey in enumerate(self.lidar_pixels):
                 dist_prey = math.sqrt((pixel_prey[0] - self.centroid_prey[0]) ** 2 + (
-                            pixel_prey[1] - self.centroid_prey[1]) ** 2)
+                        pixel_prey[1] - self.centroid_prey[1]) ** 2)
                 if dist_prey < dist_prey_previous:
                     dist_prey_previous = dist_prey
                     previous_lidar_prey_point.pose.position.x = self.lidar_points[idx_prey][0]
@@ -885,7 +912,7 @@ class Driver:
                 # rospy.loginfo('im here')
                 # rospy.loginfo(len(self.lidar_pixels))
                 dist_teammate = math.sqrt((pixel_teammate[0] - self.centroid_teammate[0]) ** 2 + (
-                            pixel_teammate[1] - self.centroid_teammate[1]) ** 2)
+                        pixel_teammate[1] - self.centroid_teammate[1]) ** 2)
                 if dist_teammate < dist_teammate_previous:
                     dist_teammate_previous = dist_teammate
                     previous_lidar_teammate_point.pose.position.x = self.lidar_points[idx_teammate][0]
@@ -901,6 +928,22 @@ class Driver:
         Closer_lidar_teammate_point.pose.position.y = previous_lidar_teammate_point.pose.position.y
 
         return Closer_lidar_hunter_point, Closer_lidar_prey_point, Closer_lidar_teammate_point
+
+    # def chatting(self):
+    #     self.actual_state = self.state
+    #     if self.actual_state != self.old_state: # if state changed -> print state msg
+    #         if self.state.__eq__('wait'):
+    #             self.state_msg = 'What a deadly bore'
+    #         elif self.state.__eq__('attack'):
+    #             self.state_msg = 'I am very hungry'
+    #         elif self.state.__eq__('flee'):
+    #             self.state_msg = 'Oh no, I have to run'
+    #         else:
+    #             self.state_msg = 'Walls everywhere in this game'
+    #         # print(self.name + self.state_msg) # print state msg
+    #         self.robot_state_message = self.name + ': ' + self.state_msg
+    #         self.robot_state_publisher.publish(self.robot_state_message)
+    #     self.old_state = self.actual_state
 
     def chatting(self):
         self.actual_state = self.state

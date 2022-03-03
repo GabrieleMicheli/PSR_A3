@@ -62,7 +62,7 @@
         <arg name="x_pos" value="$(arg R3_x_pos)"/>
         <arg name="y_pos" value="$(arg R3_y_pos)"/>
         <arg name="debug" value="$(arg debug)"/>
-        <arg name="navigation" value="true"/>
+        <arg name="navigation" value="false"/>
         <arg name="world" value="$(arg world)"/>
     </include>
 
@@ -109,7 +109,7 @@
         <arg name="x_pos" value="$(arg G3_x_pos)"/>
         <arg name="y_pos" value="$(arg G3_y_pos)"/>
         <arg name="debug" value="$(arg debug)"/>
-        <arg name="navigation" value="true"/>
+        <arg name="navigation" value="false"/>
         <arg name="world" value="$(arg world)"/>
     </include>
 
@@ -156,7 +156,7 @@
         <arg name="x_pos" value="$(arg B3_x_pos)"/>
         <arg name="y_pos" value="$(arg B3_y_pos)"/>
         <arg name="debug" value="$(arg debug)"/>
-        <arg name="navigation" value="true"/>
+        <arg name="navigation" value="false"/>
         <arg name="world" value="$(arg world)"/>
     </include>
 
