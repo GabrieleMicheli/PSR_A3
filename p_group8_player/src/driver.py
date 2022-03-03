@@ -452,7 +452,7 @@ class Driver:
 
         # If it detects a wall_avoiding_angle it's only a "wall" when both prey, hunter and teammate centroids are (0,0)
         if dist_to_hunter != self.min_range_detected and dist_to_prey != self.min_range_detected \
-                and dist_to_teammate != self.min_range_detected and self.min_range_detected < 0.5:
+                and dist_to_teammate != self.min_range_detected and self.min_range_detected < 0.8:
             self.state = 'avoid_wall'
             # print(Fore.RED + 'My name is ' + self.name + ' and I am too close to the wall. Avoiding it.' + Fore.RESET)
             # cprint("\nThank you for using AR Paint, hope to you see you again soon\n", color='white',
@@ -469,7 +469,7 @@ class Driver:
             self.state = 'attack'
 
         # If it detects a prey and no hunter, the player will attack
-        elif self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0 ) and \
+        elif self.centroid_hunter == (0, 0) and self.centroid_prey == (0, 0) and \
                 self.centroid_teammate != (0, 0) and min(distances) == dist_to_teammate:
             self.state = 'avoid_wall'
 
@@ -550,6 +550,7 @@ class Driver:
             y = range * math.sin(theta)
             self.lidar_points.append([x, y, z])
 
+
         # Call function to transform real points to pixels
         self.lidarPointsToPixels(self.lidar_points)
 
@@ -616,67 +617,6 @@ class Driver:
 
         # -------------------------------------------------------------------------------------------------------------
 
-        # # Clustering function
-        # thresh = 30
-        # marker_array = MarkerArray()
-        # marker = self.createMarker(0)
-        # marker_array.markers.append(marker)
-        #
-        # for idx, (range1, range2) in enumerate(zip(msgScan.ranges[:-1], msgScan.ranges[1:])):
-        #     if range1 < 0.1 or range2 < 0.1:
-        #         continue
-        #
-        #     diff = abs(range2 - range1)
-        #
-        #     if range1 > math.inf or range2 > math.inf:
-        #         marker = self.createMarker(idx + 1)
-        #         marker_array.markers.append(marker)
-        #         continue
-        #
-        #     if diff > thresh:
-        #         marker = self.createMarker(idx + 1)
-        #         marker_array.markers.append(marker)
-        #
-        #     theta = msgScan.angle_min + idx * msgScan.angle_increment
-        #     x = range1 * cos(theta)
-        #     y = range1 * sin(theta)
-        #     point = Point(x=x, y=y, z=0)
-        #     last_marker = marker_array.markers[-1]
-        #     last_marker.points.append(point)
-        #
-        #     if len(last_marker.points) >= 15:
-        #         self.color_marker0 = 1
-        #         self.color_marker1 = 0
-        #
-        #     elif len(last_marker.points) < 15:
-        #         self.color_marker0 = 0
-        #         self.color_marker1 = 1
-        #
-        # marker_point = (0, 0, 0)
-        # error = 0.05
-        # idx_marker = 0
-        # for mark in marker_array.markers:
-        #     if not mark.points == []:
-        #         # rospy.loginfo('check check')
-        #         marker_point = (mark.points[idx_marker].x, mark.points[idx_marker].y, 0)
-        #         # # rospy.loginfo(marker_point)
-        #         # # rospy.loginfo('check 2')
-        #
-        #         if marker_point in self.min_range_point and len(marker.points) > 15:
-        #             self.exist_wall = True
-        #             rospy.loginfo('entrei no true')
-        #             # elif (self.min_range_point[0] - self.min_range_point[0]*error) < marker.points[0] < (self.min_range_point[0] + self.min_range_point[0]*error) and\
-        #             #         (self.min_range_point[1] - self.min_range_point[1]*error) < marker.points[1] < (self.min_range_point[1] + self.min_range_point[1]*error):
-        #             rospy.loginfo('HEREEEEEEEEEEEEEEEEEE??????????????')
-        #         else:
-        #             self.exist_wall = False
-        #             rospy.loginfo('entrei no false')
-        #
-        #     else:
-        #         self.exist_wall = False
-        #         # rospy.loginfo('entrei no 2')
-        #     idx_marker += 1
-        # self.clustering_lidar.publish(marker_array)
 
     # ------------------------------------------------------
     #               takeAction function
@@ -694,6 +634,10 @@ class Driver:
 
         # Nothing Detected nearby
         if self.state == 'wait':
+            # if self.in_front_points != [] and all(self.in_front_points):
+            #     self.linear_vel_to_wait = 0.3
+            #     self.angular_vel_to_wait = 0
+            # else:
             self.linear_vel_to_wait = 0.5
             self.angular_vel_to_wait = 0.3
 
@@ -758,6 +702,9 @@ class Driver:
             if self.angular_vel_to_avoid_wall < -np.pi / 4 or self.angular_vel_to_avoid_wall > np.pi / 4:
                 self.linear_vel_to_avoid_wall = 0
                 self.angular_vel_to_avoid_wall = 1.4
+            # if self.in_front_points != [] and all(self.in_front_points):
+            #     self.linear_vel_to_avoid_wall = 0.3
+            #     self.angular_vel_to_avoid_wall = 0
 
     def printScores(self):
 
