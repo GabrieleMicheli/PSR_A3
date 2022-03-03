@@ -10,7 +10,7 @@ from geometry_msgs.msg import Twist, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
 from driver_functions import *
-import OptimizationUtils.utilities as opt_utilities
+# import OptimizationUtils.utilities as opt_utilities
 # import atom_core.atom
 import numpy as np
 import math
@@ -35,6 +35,9 @@ class Driver:
         # <---------------------------------------------------------------------------------------------------------->
         # <--------------------------------Variable Initialization--------------------------------------------------->
         # <---------------------------------------------------------------------------------------------------------->
+        self.old_state = 'None'
+        self.state_msg = None
+        self.actual_state = 'None'
         self.team = 'Not defined'
         self.prey = 'Not defined'
         self.hunter = 'Not defined'
@@ -81,6 +84,7 @@ class Driver:
         green_players_list = rospy.get_param('/green_players')
         blue_players_list = rospy.get_param('/blue_players')
         self.debug = rospy.get_param('~debug')
+        self.navigation = rospy.get_param('~navigation')
 
         # Defining name of the robot, team and respective info
         self.name = rospy.get_name()
@@ -120,6 +124,8 @@ class Driver:
                                                   queue_size=1)
         self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback,
                                                  queue_size=1)
+        # self.clustering_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarClustering,
+        #                                               queue_size=1)
         self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback,
                                                 queue_size=1)
 
@@ -127,7 +133,7 @@ class Driver:
                                                        self.getCameraInfoCallback, queue_size=1)
         # self.referee_subscriber = rospy.Subscriber('/winner', String, self.callbackPodium, queue_size=1)
         # publishing the robot state: 'wait', 'attack', 'flee' and 'avoid_wall'
-        self.publisher_robot_state = rospy.Publisher('/' + self.name + '/state', String, queue_size=1)
+        self.robot_state_publisher = rospy.Publisher('/' + self.name + '/state_msg', String, queue_size=1)
 
         self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2, queue_size=1)
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
@@ -217,31 +223,32 @@ class Driver:
             angle = 1
             speed = 1
 
-        self.decisionMaking()
-        self.takeAction()
-        twist = Twist()
+        if not self.navigation:
+            self.decisionMaking()
+            self.takeAction()
+            twist = Twist()
 
-        if self.state == 'wait':
-            twist.linear.x = self.linear_vel_to_wait
-            twist.angular.z = self.angular_vel_to_wait
-        elif self.state == 'attack':
-            twist.linear.x = self.linear_vel_to_attack
-            twist.angular.z = self.angular_vel_to_attack
-        elif self.state == 'flee':
-            twist.linear.x = self.linear_vel_to_flee
-            twist.angular.z = self.angular_vel_to_flee
-        elif self.state == 'avoid_wall':
-            twist.linear.x = self.linear_vel_to_avoid_wall
-            twist.angular.z = self.angular_vel_to_avoid_wall
-        # elif self.state == 'avoid_teammate':
-        #     twist.linear.x = self.linear_vel_to_avoid_teammate
-        #     twist.angular.z = self.angular_vel_to_avoid_teammate
+            if self.state == 'wait':
+                twist.linear.x = self.linear_vel_to_wait
+                twist.angular.z = self.angular_vel_to_wait
+            elif self.state == 'attack':
+                twist.linear.x = self.linear_vel_to_attack
+                twist.angular.z = self.angular_vel_to_attack
+            elif self.state == 'flee':
+                twist.linear.x = self.linear_vel_to_flee
+                twist.angular.z = self.angular_vel_to_flee
+            elif self.state == 'avoid_wall':
+                twist.linear.x = self.linear_vel_to_avoid_wall
+                twist.angular.z = self.angular_vel_to_avoid_wall
+            # elif self.state == 'avoid_teammate':
+            #     twist.linear.x = self.linear_vel_to_avoid_teammate
+            #     twist.angular.z = self.angular_vel_to_avoid_teammate
 
-        elif self.goal_active:
-            twist.linear.x = speed
-            twist.angular.z = angle
+            elif self.goal_active:
+                twist.linear.x = speed
+                twist.angular.z = angle
 
-        self.publisher_command.publish(twist)
+            self.publisher_command.publish(twist)
 
     def computeDistanceToGoal(self, goal):
         goal_present_time = copy.deepcopy(goal)
@@ -447,6 +454,9 @@ class Driver:
         if dist_to_hunter != self.min_range_detected and dist_to_prey != self.min_range_detected \
                 and dist_to_teammate != self.min_range_detected and self.min_range_detected < 0.5:
             self.state = 'avoid_wall'
+            # print(Fore.RED + 'My name is ' + self.name + ' and I am too close to the wall. Avoiding it.' + Fore.RESET)
+            # cprint("\nThank you for using AR Paint, hope to you see you again soon\n", color='white',
+            #        on_color='on_blue')
 
         # If it detects a hunter and no prey, the player will flee away
         elif self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0) and self.centroid_teammate == (0, 0) \
@@ -507,6 +517,10 @@ class Driver:
         else:
             self.state = 'wait'
 
+        # elif self.centroid_teammate != (0,0):
+        #     self.state = 'avoid_teammate'
+
+        # self.publisher_robot_state.publish(self.state)  ###
 
     # ------------------------------------------------------
     #               lidarScanCallback function
@@ -930,6 +944,26 @@ class Driver:
     #         self.robot_state_publisher.publish(self.robot_state_message)
     #     self.old_state = self.actual_state
 
+    def chatting(self):
+        self.actual_state = self.state
+        if self.actual_state != self.old_state:
+            if self.state.__eq__('wait'):
+                waiting_list = ['I really need a beer right now', 'This game is so boring', 'I have no time to lose...']
+                self.state_msg = random.choice(waiting_list)
+            elif self.state.__eq__('attack'):
+                attack_list = ['You better be scared', 'Eat my shorts', 'Run to the hills']
+                self.state_msg = random.choice(attack_list) + ', ' + self.prey.lower()
+            elif self.state.__eq__('flee'):
+                # self.state_msg = 'Oh no, I have to run! ' + self.hunter.lower() + ' is coming'
+                fleeing_list = ['Oh no, I have to run from ', 'You are a snail ', 'You look like my grandma ']
+                self.state_msg = random.choice(fleeing_list) + self.hunter.lower()
+            else:
+                avoidance_list = ['So annoying, walls everywhere in this game :(',
+                                  'This place looks like the minotaur labyrinth', 'Another wall? What the hell?']
+                self.state_msg = random.choice(avoidance_list)
+            self.robot_state_message = self.name + ': ' + self.state_msg
+            self.robot_state_publisher.publish(self.robot_state_message)
+        self.old_state = self.actual_state
 
 def main():
     # ------------------------------------------------------
@@ -945,7 +979,7 @@ def main():
     # ------------------------------------------------------
     while not rospy.is_shutdown():
         driver.sendCommandCallback()
-        # driver.chatting()
+        driver.chatting()
         rate.sleep()
 
 
