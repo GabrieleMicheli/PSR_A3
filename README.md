@@ -7,6 +7,43 @@
 - Pedro Miguel Durães De Carvalho
 - Gabriele Micheli
 
+## Repository tree
+
+```bash
+├── p_group8_bringup
+│   ├── CMakeLists.txt
+│   ├── config
+│   ├── launch
+│   ├── package.xml
+│   ├── params
+│   └── src
+├── p_group8_description
+│   ├── CMakeLists.txt
+│   ├── package.xml
+│   └── urdf
+├── p_group8_nav
+│   ├── CMakeLists.txt
+│   ├── config
+│   ├── launch
+│   ├── maps
+│   ├── nodes
+│   ├── package.xml
+│   └── params
+├── p_group8_player
+│   ├── CMakeLists.txt
+│   ├── package.xml
+│   └── src
+├── psr_fnr
+│   ├── CMakeLists.txt
+│   ├── description
+│   ├── package.xml
+│   └── worlds
+├── README.md
+└── TeamHunt
+    ├── th_description
+    └── th_referee
+```
+
 ## Play description
 
 The play starts with three teams: **red**, **green** and **blue**. Every team has 3 players (ex. **R1**, **R2** and **R3** for the read team). \
