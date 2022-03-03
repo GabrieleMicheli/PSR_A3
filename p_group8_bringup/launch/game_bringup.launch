@@ -5,31 +5,31 @@
 
     <!--    Position parameters-->
     <arg name="R1_x_pos" default="3.0"/>
-    <arg name="R1_y_pos" default="5.0"/>
+    <arg name="R1_y_pos" default="-2.0"/>
 
-    <arg name="R2_x_pos" default="4.0"/>
+    <arg name="R2_x_pos" default="3.0"/>
     <arg name="R2_y_pos" default="5.0"/>
 
-    <arg name="R3_x_pos" default="5.0"/>
-    <arg name="R3_y_pos" default="5.0"/>
+    <arg name="R3_x_pos" default="-3.3"/>
+    <arg name="R3_y_pos" default="2.0"/>
 
-    <arg name="G1_x_pos" default="-5.0"/>
-    <arg name="G1_y_pos" default="5.0"/>
+    <arg name="G1_x_pos" default="-1.0"/>
+    <arg name="G1_y_pos" default="-2.0"/>
 
-    <arg name="G2_x_pos" default="-6.0"/>
+    <arg name="G2_x_pos" default="-5.5"/>
     <arg name="G2_y_pos" default="5.0"/>
 
-    <arg name="G3_x_pos" default="-7.0"/>
-    <arg name="G3_y_pos" default="5.0"/>
+    <arg name="G3_x_pos" default="6.0"/>
+    <arg name="G3_y_pos" default="3.5"/>
 
-    <arg name="B1_x_pos" default="-5.0"/>
-    <arg name="B1_y_pos" default="-2.0"/>
+    <arg name="B1_x_pos" default="-7.0"/>
+    <arg name="B1_y_pos" default="-1.5"/>
 
-    <arg name="B2_x_pos" default="-6.0"/>
-    <arg name="B2_y_pos" default="-2.0"/>
+    <arg name="B2_x_pos" default="1.0"/>
+    <arg name="B2_y_pos" default="1.0"/>
 
-    <arg name="B3_x_pos" default="-7.0"/>
-    <arg name="B3_y_pos" default="-2.0"/>
+    <arg name="B3_x_pos" default="5.5"/>
+    <arg name="B3_y_pos" default="0.0"/>
 
     <arg name="world" default="arena_1"/>
 
@@ -178,7 +178,7 @@
     <node name="set_player_names" pkg="th_referee" type="set_player_names" output="screen"/>
 
     <!-- Launch the 'chatting.py' ROS node -->
-    <node name="chatting" pkg="p_group8_player" type="chatting.py" output="screen"/>
+<!--    <node name="chatting" pkg="p_group8_player" type="chatting.py" output="screen"/>-->
 
 
 </launch>
