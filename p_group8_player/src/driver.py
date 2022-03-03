@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 import copy
-
 import rospy
 import std_msgs
 from std_msgs.msg import String
@@ -10,10 +9,7 @@ from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist
 from tf2_geometry_msgs import PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Point
 from driver_functions import *
-# import OptimizationUtils.utilities as opt_utilities
-# import atom_core.atom
 import numpy as np
 import math
 from math import *
@@ -21,14 +17,8 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import PointCloud2, PointField, Image, LaserScan, CameraInfo
 from sensor_msgs import point_cloud2
 from colorama import Fore, Back, Style
-from termcolor import cprint
 from prettytable import PrettyTable
-from itertools import groupby
-from operator import itemgetter
 import random
-import tf
-import scipy.spatial.transform as transf
-from std_msgs.msg import Int8MultiArray
 
 
 class Driver:
@@ -125,6 +115,7 @@ class Driver:
         self.laser_thresh = 1.2
         self.color_marker1 = 1.0
         self.color_marker0 = 0
+
         # <---------------------------------------------------------------------------------------------------------->
         # <-----------------------------Publishers and Subscribers--------------------------------------------------->
         # <---------------------------------------------------------------------------------------------------------->
@@ -134,25 +125,20 @@ class Driver:
                                                   queue_size=1)
         self.laser_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarScanCallback,
                                                  queue_size=1)
-        # self.results = rospy.Subscriber('/results', Int8MultiArray, self.callbackPodium, queue_size=1)
-        # self.clustering_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.lidarClustering,
-        #                                               queue_size=1)
         self.odom_subscriber = rospy.Subscriber('/' + self.name + '/odom', Odometry, self.odomPositionCallback,
                                                 queue_size=1)
-
-
         self.subscriber_camera_info = rospy.Subscriber('/' + self.name + '/camera/rgb/camera_info', CameraInfo,
                                                        self.getCameraInfoCallback, queue_size=1)
-        # self.referee_subscriber = rospy.Subscriber('/winner', String, self.callbackPodium, queue_size=1)
-        # publishing the robot state: 'wait', 'attack', 'flee' and 'avoid_wall'
-        self.robot_state_publisher = rospy.Publisher('/' + self.name + '/state_msg', String, queue_size=1)
 
+        self.robot_state_publisher = rospy.Publisher('/' + self.name + '/state_msg', String, queue_size=1)
         self.publisher_laser_distance = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2, queue_size=1)
         self.publisher_command = rospy.Publisher('/' + self.name + '/cmd_vel', Twist, queue_size=1)
         self.clustering_lidar = rospy.Publisher('/' + self.name + '/marker_array', MarkerArray, queue_size=1)
-        # self.publisher_point_cloud2 = rospy.Publisher('/' + self.name + '/point_cloud', PointCloud2)
-        # self.laser_scan_subscriber = rospy.Subscriber('/' + self.name + '/scan', LaserScan, self.laser_scan_callback)
         self.local_goal_publisher = rospy.Publisher('/' + self.name + '/prey_goal', PoseStamped, queue_size=1)
+
+        # <---------------------------------------------------------------------------------------------------------->
+        # <-----------------------------Navigation Goals subscribers------------------------------------------------->
+        # <---------------------------------------------------------------------------------------------------------->
         if self.navigation:
             self.goal_publisher = rospy.Publisher('/' + self.name + '/move_base_simple/goal', PoseStamped, queue_size=1)
             if self.team == 'Red':
@@ -219,7 +205,8 @@ class Driver:
 
     def goalReceivedCallback(self, goal_msg):
         rospy.loginfo('Received new goal')
-        self.goal = goal_msg  # storing goal inside the class
+        # storing goal inside the class
+        self.goal = goal_msg
         self.goal_active = True
 
     def odomPositionCallback(self, odomMsg):
@@ -228,10 +215,25 @@ class Driver:
         y = odomMsg.pose.pose.position.y
         self.position = (x, y)
 
+    # ------------------------------------------------------
+    #               Send Command function
+    # ------------------------------------------------------
     def sendCommandCallback(self):
-        # Decision outputs a speed (linear Velocity) and an angle (angular Velocity)
-        # input: goal
-        # output: angle and speed
+        """
+            Decision outputs a speed (linear Velocity) and an angle (angular Velocity)
+            :param self.goal: PoseStamped
+            :return twist msg: Angular and linear velocity twist msg
+            or
+            :param self.linear_vel_to_wait
+            :param self.linear_vel_to_attack
+            :param self.linear_vel_to_flee
+            :param self.linear_vel_to_avoid_wall
+            :param self.angular_vel_to_wait
+            :param self.angular_vel_to_attack
+            :param self.angular_vel_to_flee
+            :param self.angular_vel_to_avoid_wall
+            :return twist msg: Angular and linear velocity twist msg
+        """
 
         # Verify if the goal was reached
         if self.goal_active:
@@ -267,10 +269,6 @@ class Driver:
             elif self.state == 'avoid_wall':
                 twist.linear.x = self.linear_vel_to_avoid_wall
                 twist.angular.z = self.angular_vel_to_avoid_wall
-            # elif self.state == 'avoid_teammate':
-            #     twist.linear.x = self.linear_vel_to_avoid_teammate
-            #     twist.angular.z = self.angular_vel_to_avoid_teammate
-
             elif self.goal_active:
                 twist.linear.x = speed
                 twist.angular.z = angle
@@ -280,7 +278,16 @@ class Driver:
         else:
             self.goal_definition()
 
+    # ------------------------------------------------------
+    #               Compute Distance to Goal Function
+    # ------------------------------------------------------
     def computeDistanceToGoal(self, goal):
+        """
+            Decision outputs a distance calculated from goal euclidean distance
+            :param self.goal: PoseStamped
+            :return distance: distance in meters
+        """
+
         goal_present_time = copy.deepcopy(goal)
         goal_present_time.header.stamp = rospy.Time.now()
 
@@ -298,7 +305,18 @@ class Driver:
 
         return distance
 
+    # ------------------------------------------------------
+    #               Drive Straight Function
+    # ------------------------------------------------------
     def driveStraight(self, goal, min_speed=0.1, max_speed=0.5):
+        """
+              Function to make robot to drive straight to goal position
+              :param goal: PoseStamped
+              :param min_speed: velocity in meters per second
+              :param max_speed: velocity in meters per second
+              :return angle: angle in radians per second
+              :return speed: velocity in meters per second
+        """
         goal_present_time = copy.deepcopy(goal)
         goal_present_time.header.stamp = rospy.Time.now()
 
@@ -312,7 +330,8 @@ class Driver:
         x = goal_in_base_link.pose.position.x
         y = goal_in_base_link.pose.position.y
 
-        angle = math.atan2(y, x)  # compute the angle
+        # compute the angle
+        angle = math.atan2(y, x)
 
         # Define the linear speed based on the distance to the goal
         distance = math.sqrt(x ** 2 + y ** 2)
@@ -328,6 +347,11 @@ class Driver:
     #               cameraCallback function
     # ------------------------------------------------------
     def cameraCallback(self, msg):
+        """
+             Function to extract image from robot camera and show it with applied masks
+             :param msg: Image from camera topic
+             :return hunters_n_preys: Image with applied masks - Uint8
+        """
 
         # Convert subscribed image msg to cv2 image
         bridge = CvBridge()
@@ -374,14 +398,6 @@ class Driver:
                 x_lidar = round(int(p[0]), 2)
                 y_lidar = round(int(p[1]), 2)
                 cv2.circle(hunters_n_preys, (x_lidar, y_lidar), 2, (0, 0, 255), -1)
-
-            # rospy.loginfo('hello')
-            # # rospy.loginfo(self.points_in_camera[0])
-            # rospy.loginfo(self.points_in_camera[0][:, 0][0])
-            # rospy.loginfo(self.points_in_camera[0][:, 0][1])
-            #
-            #
-            # cv2.circle(hunters_n_preys, (x_lidar, y_lidar), 5, (255,0 , 0), -1)
 
             cv2.namedWindow(self.name)
             cv2.imshow(self.name, hunters_n_preys)
@@ -485,9 +501,6 @@ class Driver:
         if dist_to_hunter != self.min_range_detected and dist_to_prey != self.min_range_detected \
                 and dist_to_teammate != self.min_range_detected and self.min_range_detected < 0.8:
             self.state = 'avoid_wall'
-            # print(Fore.RED + 'My name is ' + self.name + ' and I am too close to the wall. Avoiding it.' + Fore.RESET)
-            # cprint("\nThank you for using AR Paint, hope to you see you again soon\n", color='white',
-            #        on_color='on_blue')
 
         # If it detects a hunter and no prey, the player will flee away
         elif self.centroid_hunter != (0, 0) and self.centroid_prey == (0, 0) and self.centroid_teammate == (0, 0) \
@@ -495,7 +508,7 @@ class Driver:
             self.state = 'flee'
 
         # If it detects a prey and no hunter, the player will attack
-        elif self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0) and self.centroid_teammate == (0, 0)\
+        elif self.centroid_hunter == (0, 0) and self.centroid_prey != (0, 0) and self.centroid_teammate == (0, 0) \
                 and min(distances) == dist_to_prey:
             self.state = 'attack'
 
@@ -547,11 +560,6 @@ class Driver:
         # If it detects no prey, no hunter and no wall, the player will wait and walk around
         else:
             self.state = 'wait'
-
-        # elif self.centroid_teammate != (0,0):
-        #     self.state = 'avoid_teammate'
-
-        # self.publisher_robot_state.publish(self.state)  ###
 
     # ------------------------------------------------------
     #               lidarScanCallback function
@@ -626,29 +634,6 @@ class Driver:
         else:
             self.wall_avoiding_angle = 0
 
-        # range_angles = np.arange(len(msgScan.ranges))
-        # ranges = np.array(msgScan.ranges)
-        # range_mask = (ranges > self.laser_thresh)
-        # ranges = list(range_angles[range_mask])
-        #
-        # gap_list = []
-        #
-        # for k, g in groupby(enumerate(ranges), lambda ix: ix[1] - ix[0]):
-        #     g = (map(itemgetter(1), g))
-        #     g = list(map(int, g))
-        #     gap_list.append((g[0], g[-1]))
-        # gap_list.sort(key=len)
-        #
-        # largest_gap = gap_list[-1]
-        # min_angle, max_angle = largest_gap[0] * (msgScan.angle_increment * 180 / np.pi), largest_gap[-1] * (
-        #         msgScan.angle_increment * 180 / np.pi)
-        # self.average_gap = (max_angle - min_angle) / 2
-        #
-        # self.wall_avoiding_angle = min_angle + self.average_gap
-
-        # -------------------------------------------------------------------------------------------------------------
-
-
     # ------------------------------------------------------
     #               takeAction function
     # ------------------------------------------------------
@@ -658,6 +643,7 @@ class Driver:
            :param state: Robot state - String
            :param centroid_prey: (x,y) - Tuple
            :param centroid_hunter: (x,y) - Tuple
+           :param max_speed - max velocity in meter per second
            :param wall_avoiding_angle : angle in radians
            :return Linear velocities based on state : meters per second
            :return Angular velocities based on state: radians per second
@@ -665,10 +651,6 @@ class Driver:
 
         # Nothing Detected nearby
         if self.state == 'wait':
-            # if self.in_front_points != [] and all(self.in_front_points):
-            #     self.linear_vel_to_wait = 0.3
-            #     self.angular_vel_to_wait = 0
-            # else:
             self.linear_vel_to_wait = 0.5
             self.angular_vel_to_wait = 0.3
 
@@ -683,15 +665,8 @@ class Driver:
                 speed = self.width - self.centroid_prey[0]
 
             angular_vel_to_attack = 0.001 * rotation_direction * speed
-
-            # angular_vel_to_attack = 0.001 * (self.width / 2 - self.centroid_prey[0])
-            # if np.sign(self.odom.twist.twist.linear.x) != np.sign(self.angular_vel_to_attack):
-            #     self.angular_vel_to_attack = 2 * self.angular_vel_to_attack
             self.linear_vel_to_attack = 1.0
             self.angular_vel_to_attack = min(angular_vel_to_attack, max_speed)
-
-            # self.linear_vel_to_attack = min(self.linear_vel_to_attack, max_attack_speed)
-            # self.linear_vel_to_attack = max(self.linear_vel_to_attack, min_attack_speed)
 
         # Hunter Detected -> Flee
         elif self.state == 'flee':
@@ -704,17 +679,15 @@ class Driver:
                 speed = self.width - self.centroid_hunter[0]
 
             angular_vel_to_flee = 0.001 * rotation_direction * speed
-            # rospy.loginfo('this is the angular' + str(angular_vel_to_flee))
             self.linear_vel_to_flee = 0.8
             self.angular_vel_to_flee = min(angular_vel_to_flee, max_speed)
-            # rospy.loginfo('this is the self' + str(self.angular_vel_to_flee))
 
         # Only Wall Detected -> Avoid_wall
         elif self.state == 'avoid_wall':
 
             self.angular_vel_to_avoid_wall = self.wall_avoiding_angle
             self.linear_vel_to_avoid_wall = 0.6
-            #
+
             if self.angular_vel_to_avoid_wall < -np.pi / 4 or self.angular_vel_to_avoid_wall > np.pi / 4:
                 self.linear_vel_to_avoid_wall = 0
                 self.angular_vel_to_avoid_wall = 1.4
@@ -760,7 +733,16 @@ class Driver:
 
         return marker
 
+    # ------------------------------------------------------
+    #               Camera info Callback function
+    # ------------------------------------------------------
     def getCameraInfoCallback(self, camera):
+        """
+               Function to extract the camera parameters
+               :param camera: CameraInfo topic
+               :return camera parameters : self.K ; self.D; self.P
+               :return self.camera_info_exist: Bool
+        """
         try:
             self.D = camera.D
             self.K = camera.K
@@ -772,7 +754,17 @@ class Driver:
             self.camera_info_exist = False
             rospy.logerr("Error, no camera parameters")
 
+    # ------------------------------------------------------
+    #            Lidar Points to Pixels function
+    # ------------------------------------------------------
     def lidarPointsToPixels(self, realpoints):
+        """
+               Function to extract the camera parameters
+               :param realpoints: Lidar points : Array List [(x,y,z)]
+               :param self.K: Intrinsic Matrix
+               :return lidar_pixels : Array List [(x_pixel, y_pixel, z_pixel)]
+               :return lidar_pixels_in_image :  Array List [(x_pixel, y_pixel, z_pixel)]
+        """
 
         # Reset the lidar printed points
         self.lidar_pixels_in_image = []
@@ -794,11 +786,9 @@ class Driver:
                                          RPY[2])],
                                     [-np.sin(RPY[1]), np.sin(RPY[0]) * np.cos(RPY[1]),
                                      np.cos(RPY[0]) * np.cos(RPY[1])]])
-        #
         translation_matrix = np.vstack(XYZ)
 
         L_t_C = np.concatenate((rotation_matrix, translation_matrix), axis=1)
-        # rospy.loginfo(L_t_C)
 
         for point in realpoints:
             p = np.vstack((point[0], point[1], 0, 1))
@@ -815,7 +805,17 @@ class Driver:
             else:
                 self.lidar_pixels.append([-1000, -1000, -1000])
 
+    # ------------------------------------------------------
+    #      Find coordinates of Centroid function
+    # ------------------------------------------------------
     def find_coordinates_of_centroid(self):
+        """
+                Function to find real world coordinates of centroids
+                :param lidar_pixels : Array List [(x_pixel, y_pixel, z_pixel)]
+                :return Closer_lidar_hunter_point: PoseStamped
+                :return Closer_lidar_prey_point: PoseStamped
+                :return Closer_lidar_teammate_point: PoseStamped
+         """
 
         # Create pose stamped variables
         previous_lidar_hunter_point = PoseStamped()
@@ -880,8 +880,6 @@ class Driver:
 
         if self.centroid_teammate != (0, 0):
             for idx_teammate, pixel_teammate in enumerate(self.lidar_pixels):
-                # rospy.loginfo('im here')
-                # rospy.loginfo(len(self.lidar_pixels))
                 dist_teammate = math.sqrt((pixel_teammate[0] - self.centroid_teammate[0]) ** 2 + (
                         pixel_teammate[1] - self.centroid_teammate[1]) ** 2)
                 if dist_teammate < dist_teammate_previous:
@@ -900,8 +898,16 @@ class Driver:
 
         return Closer_lidar_hunter_point, Closer_lidar_prey_point, Closer_lidar_teammate_point
 
-
+    # ------------------------------------------------------
+    #               Chatting function
+    # ------------------------------------------------------
     def chatting(self):
+        """
+              Function to create interactive chatting
+              :param self.state : State of robot : String
+              :return robot_state_message: Message to Print : String
+        """
+
         self.actual_state = self.state
         if self.actual_state != self.old_state:
             if self.state.__eq__('wait'):
@@ -922,7 +928,15 @@ class Driver:
             self.robot_state_publisher.publish(self.robot_state_message)
         self.old_state = self.actual_state
 
+    # ------------------------------------------------------
+    #               Definition goal function
+    # ------------------------------------------------------
     def goal_definition(self):
+        """
+               Function to create interactive chatting
+               :param self.goal : PoseStamped
+               :return goal_in_map_link: PoseStamped
+         """
         goal_list = [None, None, None]
         min_distance = math.inf
         final_goal = None
@@ -936,10 +950,10 @@ class Driver:
         for goal in goal_list:
             if goal:
                 time = rospy.Time.now() - goal.header.stamp
-                # print(f'Time: {time}, Stamp: {goal.header.stamp}, Duration: {rospy.Duration(10)}')
                 if time < rospy.Duration(10):
                     distance = self.computeDistanceToGoal(goal)
-                    rospy.loginfo(f' {self.name} found a recent goal with a distance of {distance}, and the minimum distance is {min_distance}')
+                    rospy.loginfo(
+                        f' {self.name} found a recent goal with a distance of {distance}, and the minimum distance is {min_distance}')
                     if distance < min_distance:
                         min_distance = distance
                         final_goal = goal
@@ -958,22 +972,7 @@ class Driver:
                 rospy.loginfo(f' {self.name} published a new goal')
                 self.goal_publisher.publish(goal_in_map_link)
 
-
-
         rospy.sleep(5)
-
-        # goal_present_time = copy.deepcopy(message)
-        # goal_present_time.header.stamp = rospy.Time.now()
-        #
-        # target_frame = '/map'
-        # try:
-        #     goal_in_base_link = self.tf_buffer.ltransform(goal_present_time, target_frame, rospy.Duration(1))
-        # except(tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-        #     rospy.logerr('Could not transform goal from' + message.header.frane.id + ' to ' + target_frame + '.')
-        #     return None, None
-        #
-        # if goal_in_base_link:
-        #     self.goal_publisher = 1
 
     def goal1Callback(self, message):
         # print(f'goal1: {message}')
@@ -987,47 +986,14 @@ class Driver:
         # print('goal3')
         self.goal3 = message
 
-    # def callbackPodium(self, results):
-    #     self.red_result = 0
-    #     self.green_result = 0
-    #     self.blue_result = 0
-    #     if results:
-    #         self.red_result = results.data[0]
-    #         self.green_result = results.data[1]
-    #         self.blue_result = results.data[2]
-
-        # if self.red_result > self.green_result > self.blue_result:
-        #     img = cv2.imread('red_green_blue.jpg')
-        #     cv2.namedWindow('Podium Winning Team')
-        #     cv2.imshow('Podium Winning Team', img)
-        #
-        # elif self.red_result > self.blue_result > self.green_result:
-        #     img = cv2.imread('red_blue_green.jpg')
-        #     cv2.namedWindow('Podium Winning Team')
-        #     cv2.imshow('Podium Winning Team', img)
-        #
-        # elif self.green_result > self.red_result > self.blue_result:
-        #     img = cv2.imread('green_red_blue.jpg')
-        #     cv2.namedWindow('Podium Winning Team')
-        #     cv2.imshow('Podium Winning Team', img)
-        #
-        # elif self.green_result > self.blue_result > self.red_result:
-        #     img = cv2.imread('green_blue_red.jpg')
-        #     cv2.namedWindow('Podium Winning Team')
-        #     cv2.imshow('Podium Winning Team', img)
-        #
-        # elif self.blue_result > self.green_result > self.red_result:
-        #     img = cv2.imread('blue_green_red.jpg')
-        #     cv2.namedWindow('Podium Winning Team')
-        #     cv2.imshow('Podium Winning Team', img)
-        #
-        # elif self.blue_result > self.red_result > self.green_result:
-        #     img = cv2.imread('blue_red_green.jpg')
-        #     cv2.namedWindow('Podium Winning Team')
-        #     cv2.imshow('Podium Winning Team', img)
-        # else:
-        #     rospy.loginfo('it is a tie')
-
+    def callbackPodium(self, results):
+        self.red_result = 0
+        self.green_result = 0
+        self.blue_result = 0
+        if results:
+            self.red_result = results.data[0]
+            self.green_result = results.data[1]
+            self.blue_result = results.data[2]
 
 
 def main():
