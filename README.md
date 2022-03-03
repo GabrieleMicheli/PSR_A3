@@ -1,10 +1,10 @@
 # TeamHunt
 
-## PSR: assignment 3
+## PSR assignment 3
 ###### Students:
 - Manuel Alberto Silva Gomes
-- Jose Pedro Moura Costa Pinto
-- Pedro Miguel Duares De Carvalho
+- José Pedro Moura Costa Pinto
+- Pedro Miguel Durães De Carvalho
 - Gabriele Micheli
 
 ## Play description
