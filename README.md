@@ -102,6 +102,9 @@ To start the referee node, run the command: \
 If you want to have some fun during the game, open a new terminal and run the command: \
 ```rosrun p_pgroup8_player chatting.py``` \
 In this way you can see the robot's chat during the game, enjoy!
+You can see a video demo of team hunt [here](https://youtu.be/x-3ky_ewXvY)!
+
+
 ## rviz  
 To open the initial **rviz** setup, run the command: \
 ```roslaunch p_group8_bringup visualize.launch```  
@@ -137,4 +140,4 @@ Here are the buttons used and their functionalities:
 - **Y button**: decreases 0.1 to linear velocity;
 - **Right trigger**: temporarily adds 0.5 to linear velocity;
 
-You can see a video demo [here](https://www.youtube.com/watch?v=CBHNlbpLpZM/)!
+You can see a video demo [here](https://youtu.be/F82IoVw4xVM)!
