@@ -43,6 +43,13 @@
     ├── th_description
     └── th_referee
 ```
+This project contains all the files needed to run the game.
+- *p_group8_bringup* - Contains .launch files necessary as well as the configuration files.
+- *p_group8_description* - Contains .xacro files of robot and gazebo configurations.
+- *p_group8_nav* - Contains the navigation algorithm to control the robots.
+- *p_group8_player* - Contains all python file to control the robot (driver, chatting, joyteleop, ...).
+- *psr_fnr* - Contains the arenas used in gazebo simulation.
+- *TeamHunt* - Contains the referee used in game, developed by @miguelriemoliveira.
 
 ## Play description
 
