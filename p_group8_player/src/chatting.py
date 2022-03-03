@@ -20,11 +20,11 @@ class Chatting:
             rospy.Subscriber('/' + player + '/state_msg', String, self.robot_state_callback)
 
     def robot_state_callback(self, state_msg):
-        if 'R' in state_msg.data:
+        if 'R1' in state_msg.data or 'R2' in state_msg.data or 'R3' in state_msg.data:
             print(Fore.RED + state_msg.data + Style.RESET_ALL)
-        elif 'G' in state_msg.data:
+        elif 'G1' in state_msg.data or 'G2' in state_msg.data or 'G3' in state_msg.data:
             print(Fore.GREEN + state_msg.data + Style.RESET_ALL)
-        elif 'B' in state_msg.data:
+        elif 'B1' in state_msg.data or 'B2' in state_msg.data or 'B3' in state_msg.data:
             print(Fore.BLUE + state_msg.data + Style.RESET_ALL)
         self.state_msg = state_msg.data
 
